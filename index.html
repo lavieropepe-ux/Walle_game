@@ -191,14 +191,12 @@
       animate();
     };
 
-    // Generatore procedurale della texture del cielo di Halloween
     function generateHalloweenSkyTexture() {
       const canvas = document.createElement('canvas');
       canvas.width = 1024;
       canvas.height = 1024;
       const ctx = canvas.getContext('2d');
 
-      // Gradiente cielo notturno cupo (viola scuro / arancione sinistro all'orizzonte)
       const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
       grad.addColorStop(0, '#05020a');
       grad.addColorStop(0.5, '#180a29');
@@ -207,12 +205,10 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Luna piena spettrale
       const moonX = 750;
       const moonY = 250;
       const moonRadius = 90;
 
-      // Bagliore della luna
       const moonGlow = ctx.createRadialGradient(moonX, moonY, moonRadius * 0.5, moonX, moonY, moonRadius * 3);
       moonGlow.addColorStop(0, 'rgba(255, 230, 180, 0.8)');
       moonGlow.addColorStop(0.4, 'rgba(255, 140, 0, 0.25)');
@@ -222,13 +218,11 @@
       ctx.arc(moonX, moonY, moonRadius * 3, 0, Math.PI * 2);
       ctx.fill();
 
-      // Disco lunare
       ctx.fillStyle = '#fff4db';
       ctx.beginPath();
       ctx.arc(moonX, moonY, moonRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      // Stelle fievoli
       ctx.fillStyle = '#ffffff';
       for (let i = 0; i < 150; i++) {
         const x = Math.random() * canvas.width;
@@ -245,23 +239,19 @@
     function init() {
       const container = document.getElementById('canvas-container');
 
-      // 1. Scena & Nebbia Tetramente Illuminata
       scene = new THREE.Scene();
       scene.background = generateHalloweenSkyTexture();
       scene.fog = new THREE.FogExp2(0x1a0a2a, 0.015);
 
-      // 2. Camera
       camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
       camera.position.set(0, cameraHeight, cameraDistance);
 
-      // 3. Renderer
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.shadowMap.enabled = true;
       container.appendChild(renderer.domElement);
 
-      // 4. Luci di Ambiente Spettrale (Tonalità Arancio / Viola)
       const ambientLight = new THREE.AmbientLight(0x8a55a5, 1.2);
       scene.add(ambientLight);
 
@@ -270,16 +260,13 @@
       moonLight.castShadow = true;
       scene.add(moonLight);
 
-      // 5. Creazione Percorso e Ostacoli
       createLevel();
       createFireballs();
       createFallbackPlayer();
 
-      // 6. Caricamento Modelli GLTF
       if (typeof THREE.GLTFLoader !== 'undefined') {
         const loader = new THREE.GLTFLoader();
 
-        // Caricamento Protagonista
         loader.load(
           './walle08.glb',
           (gltf) => {
@@ -310,7 +297,6 @@
           (err) => console.warn("Modello walle08.glb non trovato, in uso il segnaposto.", err)
         );
 
-        // Caricamento Alberi 3D (tree.glb)
         loader.load(
           './tree.glb',
           (gltf) => {
@@ -366,7 +352,6 @@
     }
 
     function createLevel() {
-      // Terreno cupo stile notte di Halloween
       const groundMat = new THREE.MeshLambertMaterial({ color: 0x22112a });
       const obstacleMat = new THREE.MeshLambertMaterial({ color: 0x4a3b52 });
 
@@ -388,7 +373,6 @@
         scene.add(mesh);
       });
 
-      // Traguardo a X = 100
       const ringGeo = new THREE.TorusGeometry(2, 0.3, 16, 100);
       const ringMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
       finishRing = new THREE.Mesh(ringGeo, ringMat);
@@ -496,41 +480,61 @@
         player.rotation.y = Math.PI / 2;
       }
 
+      // Applica gravità e movimento verticale prima di gestire i pavimenti/ostacoli
+      player.position.y += velocityY;
+      velocityY += gravity;
+
+      // 1. Calcola l'altezza di atterraggio di base (Livello del terreno o vuoto)
+      const currentX = player.position.x;
+      const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
+      let targetFloorY = onPlatform ? groundY : -99;
+
+      // 2. Gestione collisione con la FACCIA SUPERIORE e i LATI degli ostacoli
       let canMoveX = true;
+
       obstacles.forEach(obs => {
-        const dist = Math.abs(nextX - obs.x);
-        if (dist < (obs.width / 2 + 0.5) && player.position.y < obs.height) {
-          canMoveX = false;
+        const obsTopY = obs.height + groundY; // Altezza della superficie dell'ostacolo
+        const isHorizontalOver = Math.abs(nextX - obs.x) < (obs.width / 2 + 0.4);
+
+        if (isHorizontalOver) {
+          // Se si trova sopra la cima dell'ostacolo (o sta atterrando)
+          if (player.position.y >= obsTopY - 0.2) {
+            targetFloorY = Math.max(targetFloorY, obsTopY);
+          } else {
+            // Se si trova più in basso rispetto alla superficie, blocca il movimento laterale
+            canMoveX = false;
+          }
         }
       });
 
+      // Se non ci sono ostacoli laterali a sbarrare la strada, muovi sull'asse X
       if (canMoveX) {
         player.position.x = nextX;
       }
 
+      // 3. Gestione dell'atterraggio (Terreno o Superficie dell'ostacolo)
+      if (player.position.y <= targetFloorY) {
+        player.position.y = targetFloorY;
+        velocityY = 0;
+        isGrounded = true;
+      } else {
+        isGrounded = false;
+      }
+
       player.position.z = foregroundZ;
 
+      // Gestione del Salto
       if (touchState.jump && isGrounded) {
         velocityY = jumpStrength;
         isGrounded = false;
       }
 
-      player.position.y += velocityY;
-      velocityY += gravity;
-
-      const currentX = player.position.x;
-      const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
-
-      if (onPlatform && player.position.y <= groundY) {
-        player.position.y = groundY;
-        velocityY = 0;
-        isGrounded = true;
-      }
-
+      // Caduta nel Vuoto
       if (player.position.y < -6) {
         endGame(false, "Sei caduto nell'oscurità!");
       }
 
+      // Vittoria
       if (currentX >= 98) {
         endGame(true, `Vittoria! Hai superato la notte di Halloween con ${timeLeft}s rimasti!`);
       }
