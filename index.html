@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>walle08 - Nature Adventure</title>
+  <title>Walle08 - Nature Adventure</title>
   <style>
     body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #87ceeb; }
     #canvas-container { width: 100vw; height: 100vh; display: block; }
@@ -33,7 +33,7 @@
     }
   </style>
 
-  <!-- Importmap per caricare Three.js come Modulo ES -->
+  <!-- Importmap per caricare Three.js via ES Modules -->
   <script type="importmap">
     {
       "imports": {
@@ -65,7 +65,7 @@
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-    // --- IMPOSTAZIONI GIOCO ---
+    // --- VARIABILI DI GIOCO ---
     let scene, camera, renderer;
     let player, finishLine;
     let leaves = [];
@@ -77,37 +77,4 @@
     // Fisica personaggio
     let velocityY = 0;
     const gravity = -0.015;
-    const jumpStrength = 0.35;
-    let isGrounded = false;
-    const moveSpeed = 0.15;
-
-    init();
-    animate();
-
-    function init() {
-      const container = document.getElementById('canvas-container');
-
-      // 1. Scena & Camera
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x87ceeb);
-      scene.fog = new THREE.FogExp2(0x87ceeb, 0.015);
-
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 5, 10);
-
-      // 2. Renderer
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.shadowMap.enabled = true;
-      container.appendChild(renderer.domElement);
-
-      // 3. Luci
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-      scene.add(ambientLight);
-
-      const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-      dirLight.position.set(20, 40, 20);
-      dirLight.castShadow = true;
-      scene.add(dirLight);
-
-      // 4
+    const jumpStrength = 0.
