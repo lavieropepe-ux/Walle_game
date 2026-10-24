@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
-  <title>Walle08 - Mario Bros Style Platformer</title>
+  <title>Walle08 - Platformer 2.5D with Obstacles</title>
   <style>
     * {
       box-sizing: border-box;
@@ -42,6 +42,22 @@
       color: #ffffff;
       text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
     }
+
+    /* Schermata Game Over / Vittoria */
+    #game-over-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); display: flex; flex-direction: column;
+      justify-content: center; align-items: center; color: white; z-index: 30;
+    }
+    #game-over-overlay.hidden { display: none; }
+    #game-over-overlay h1 { font-size: 42px; margin-bottom: 10px; }
+    #game-over-overlay p { font-size: 18px; margin-bottom: 20px; }
+    #restart-btn {
+      padding: 12px 28px; font-size: 18px; font-weight: bold; color: #fff;
+      background: #27ae60; border: none; border-radius: 8px; cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: background 0.2s;
+    }
+    #restart-btn:hover { background: #2ecc71; }
 
     /* CONTROLLI TOUCH */
     #dpad-side {
@@ -106,7 +122,13 @@
 <body>
 
   <div id="ui-overlay">
-    <h1>Walle08 - Platformer 2.5D</h1>
+    <h1>Walle08 - Platformer Adventure</h1>
+  </div>
+
+  <div id="game-over-overlay" class="hidden">
+    <h1 id="status-title">GAME OVER</h1>
+    <p id="status-desc">Sei caduto nel vuoto!</p>
+    <button id="restart-btn" onclick="resetGame()">Ricomincia</button>
   </div>
 
   <div id="dpad-side">
@@ -119,7 +141,8 @@
   <div id="canvas-container"></div>
 
   <script>
-    let scene, camera, renderer, player;
+    let scene, camera, renderer, player, finishRing;
+    let isGameOver = false;
 
     const touchState = {
       left: false,
@@ -132,10 +155,24 @@
     const gravity = -0.016;
     const jumpStrength = 0.38;
     let isGrounded = true;
-    const groundY = 0;
+    const groundY = 0.8;
     const foregroundZ = 2.0;
 
-    // Altezza e distanza fissa per la telecamera (Super Mario Style)
+    // Struttura piattaforme e ostacoli
+    const platforms = [
+      { start: -10, end: 15 },
+      { start: 20, end: 40 },
+      { start: 47, end: 70 },
+      { start: 77, end: 110 } // Traguardo a X = 100
+    ];
+
+    const obstacles = [
+      { x: 5, width: 1.2, height: 1.2 },
+      { x: 30, width: 1.5, height: 1.5 },
+      { x: 58, width: 1.4, height: 1.4 },
+      { x: 88, width: 1.6, height: 1.6 }
+    ];
+
     const cameraHeight = 3.5;
     const cameraDistance = 14.0;
 
@@ -151,7 +188,7 @@
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x87ceeb);
 
-      // 2. Telecamera fissa stile Super Mario
+      // 2. Camera
       camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
       camera.position.set(0, cameraHeight, cameraDistance);
 
@@ -171,8 +208,8 @@
       mainLight.castShadow = true;
       scene.add(mainLight);
 
-      // 5. Scenario Naturale (Alberi e Cespugli sullo Sfondo)
-      createNatureEnvironment();
+      // 5. Creazione Percorso con Piattaforme e Vuoti
+      createLevel();
 
       // 6. Personaggio di Fallback Immediato
       createFallbackPlayer();
@@ -183,39 +220,31 @@
         loader.load(
           './walle08.glb',
           (gltf) => {
-            console.log("Modello walle08.glb caricato!");
             if (player) scene.remove(player);
 
             const loadedModel = gltf.scene;
-
             const box = new THREE.Box3().setFromObject(loadedModel);
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z);
             const scale = 2.2 / (maxDim || 1);
             
             loadedModel.scale.setScalar(scale);
-
             box.setFromObject(loadedModel);
             const center = box.getCenter(new THREE.Vector3());
             loadedModel.position.sub(center);
 
             player = new THREE.Group();
             player.add(loadedModel);
-            player.position.set(0, groundY + 0.8, foregroundZ);
+            player.position.set(0, groundY, foregroundZ);
 
             player.traverse((child) => {
-              if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-              }
+              if (child.isMesh) child.castShadow = true;
             });
 
             scene.add(player);
           },
           undefined,
-          (err) => {
-            console.error("ERRORE caricamento walle08.glb:", err);
-          }
+          (err) => console.warn("Modello walle08.glb non trovato, in uso il segnaposto.", err)
         );
       }
 
@@ -230,49 +259,61 @@
       const mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = true;
       player.add(mesh);
-      player.position.set(0, groundY + 0.8, foregroundZ);
+      player.position.set(0, groundY, foregroundZ);
       scene.add(player);
     }
 
-    function createNatureEnvironment() {
-      // Terreno del percorso
-      const groundGeo = new THREE.BoxGeometry(300, 2, 15);
+    function createLevel() {
       const groundMat = new THREE.MeshLambertMaterial({ color: 0x47a042 });
-      const ground = new THREE.Mesh(groundGeo, groundMat);
-      ground.position.set(0, -1, 0);
-      ground.receiveShadow = true;
-      scene.add(ground);
+      const obstacleMat = new THREE.MeshLambertMaterial({ color: 0x7f8c8d });
 
+      // Generazione Piattaforme separate dai vuoti
+      platforms.forEach(p => {
+        const length = p.end - p.start;
+        const geo = new THREE.BoxGeometry(length, 2, 15);
+        const mesh = new THREE.Mesh(geo, groundMat);
+        mesh.position.set(p.start + length / 2, -1, 0);
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+      });
+
+      // Generazione Ostacoli 3D da saltare
+      obstacles.forEach(obs => {
+        const geo = new THREE.BoxGeometry(obs.width, obs.height, 3);
+        const mesh = new THREE.Mesh(geo, obstacleMat);
+        mesh.position.set(obs.x, obs.height / 2, foregroundZ);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+      });
+
+      // Anello Traguardo a X = 100
+      const ringGeo = new THREE.TorusGeometry(2, 0.3, 16, 100);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0xffd700 });
+      finishRing = new THREE.Mesh(ringGeo, ringMat);
+      finishRing.position.set(100, 2.5, foregroundZ);
+      scene.add(finishRing);
+
+      // Sfondo Alberi e Cespugli
       const treeMatTrunk = new THREE.MeshLambertMaterial({ color: 0x5a3d28 });
       const treeMatLeaves = new THREE.MeshLambertMaterial({ color: 0x2d7d32 });
-      const bushMat = new THREE.MeshLambertMaterial({ color: 0x388e3c });
 
-      // Alberi e Cespugli arretrati rispetto al personaggio
-      for (let x = -100; x <= 100; x += 6) {
-        if (Math.random() > 0.2) {
-          const zPos = -1.5 - Math.random() * 4; 
-          const scale = 1.0 + Math.random() * 0.5;
-
-          const trunkGeo = new THREE.CylinderGeometry(0.25 * scale, 0.35 * scale, 3 * scale, 8);
-          const trunk = new THREE.Mesh(trunkGeo, treeMatTrunk);
-          trunk.position.set(x + (Math.random() - 0.5) * 2, (3 * scale) / 2, zPos);
-          trunk.castShadow = true;
-          scene.add(trunk);
-
-          const leavesGeo = new THREE.ConeGeometry(1.8 * scale, 4 * scale, 8);
-          const leaves = new THREE.Mesh(leavesGeo, treeMatLeaves);
-          leaves.position.set(trunk.position.x, trunk.position.y + (1.8 * scale), zPos);
-          leaves.castShadow = true;
-          scene.add(leaves);
-        }
+      for (let x = -10; x <= 110; x += 7) {
+        // Salta gli alberi se posizionati sopra i crateri
+        const isOverHole = !platforms.some(p => x >= p.start && x <= p.end);
+        if (isOverHole) continue;
 
         if (Math.random() > 0.3) {
-          const zPos = -1.0 - Math.random() * 2;
-          const bushGeo = new THREE.SphereGeometry(0.6 + Math.random() * 0.3, 8, 8);
-          const bush = new THREE.Mesh(bushGeo, bushMat);
-          bush.position.set(x + (Math.random() - 0.5) * 3, 0.4, zPos);
-          bush.castShadow = true;
-          scene.add(bush);
+          const zPos = -2.0 - Math.random() * 4;
+          const scale = 1.0 + Math.random() * 0.5;
+
+          const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25 * scale, 0.35 * scale, 3 * scale, 8), treeMatTrunk);
+          trunk.position.set(x, (3 * scale) / 2, zPos);
+          scene.add(trunk);
+
+          const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.8 * scale, 4 * scale, 8), treeMatLeaves);
+          leaves.position.set(x, trunk.position.y + (1.8 * scale), zPos);
+          scene.add(leaves);
         }
       }
     }
@@ -305,21 +346,36 @@
     }
 
     function updatePlayerMovement() {
-      if (!player) return;
+      if (!player || isGameOver) return;
 
-      // Movimento orizzontale
+      let nextX = player.position.x;
+
+      // Movimento laterale
       if (touchState.left) {
-        player.position.x -= moveSpeed;
+        nextX -= moveSpeed;
         player.rotation.y = -Math.PI / 2;
       }
       if (touchState.right) {
-        player.position.x += moveSpeed;
+        nextX += moveSpeed;
         player.rotation.y = Math.PI / 2;
+      }
+
+      // Collisione con gli ostacoli (Rocce marroni)
+      let canMoveX = true;
+      obstacles.forEach(obs => {
+        const dist = Math.abs(nextX - obs.x);
+        if (dist < (obs.width / 2 + 0.5) && player.position.y < obs.height) {
+          canMoveX = false;
+        }
+      });
+
+      if (canMoveX) {
+        player.position.x = nextX;
       }
 
       player.position.z = foregroundZ;
 
-      // Salto e gravità
+      // Salto
       if (touchState.jump && isGrounded) {
         velocityY = jumpStrength;
         isGrounded = false;
@@ -328,17 +384,55 @@
       player.position.y += velocityY;
       velocityY += gravity;
 
-      if (player.position.y <= groundY + 0.8) {
-        player.position.y = groundY + 0.8;
+      // Controllo se il personaggio si trova sopra una piattaforma verde
+      const currentX = player.position.x;
+      const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
+
+      if (onPlatform && player.position.y <= groundY) {
+        player.position.y = groundY;
         velocityY = 0;
         isGrounded = true;
       }
 
-      // Telecamera fissa verticale che segue SOLO lo scorrimento orizzontale (X)
+      // Caduta nel Vuoto / Crantene
+      if (player.position.y < -6) {
+        endGame(false, "Sei caduto nel vuoto!");
+      }
+
+      // Vittoria: Raggiungimento del Traguardo
+      if (currentX >= 98) {
+        endGame(true, "Hai superato tutti gli ostacoli!");
+      }
+
+      if (finishRing) finishRing.rotation.y += 0.02;
+
+      // Telecamera fissa in altezza (Super Mario Style)
       camera.position.x = player.position.x;
-      camera.position.y = cameraHeight; // Non sale quando salta il personaggio!
+      camera.position.y = cameraHeight;
       camera.position.z = cameraDistance;
       camera.lookAt(player.position.x, cameraHeight - 0.5, foregroundZ);
+    }
+
+    function endGame(victory, message) {
+      isGameOver = true;
+      const overlay = document.getElementById('game-over-overlay');
+      const title = document.getElementById('status-title');
+      const desc = document.getElementById('status-desc');
+
+      title.innerText = victory ? "VITTORIA! 🎉" : "MISSIONE FALLITA 💥";
+      title.style.color = victory ? "#2ecc71" : "#e74c3c";
+      desc.innerText = message;
+      overlay.classList.remove('hidden');
+    }
+
+    function resetGame() {
+      isGameOver = false;
+      document.getElementById('game-over-overlay').classList.add('hidden');
+
+      if (player) {
+        player.position.set(0, groundY, foregroundZ);
+        velocityY = 0;
+      }
     }
 
     function animate() {
