@@ -56,36 +56,36 @@
     }
     #restart-btn:hover { background: #e67e22; }
 
-    #dpad-side {
+    /* JOYSTICK ANALOGICO IN BASSO A SINISTRA */
+    #joystick-container {
       position: absolute;
-      bottom: 30px;
-      left: 20px;
-      display: flex;
-      gap: 15px;
-      z-index: 20;
-    }
-    .btn-touch {
-      width: 70px;
-      height: 70px;
-      background: rgba(40, 20, 60, 0.5);
+      bottom: 25px;
+      left: 25px;
+      width: 110px;
+      height: 110px;
+      background: rgba(40, 20, 60, 0.4);
       border: 2px solid rgba(255, 140, 0, 0.6);
-      border-radius: 15px;
+      border-radius: 50%;
+      z-index: 20;
+      touch-action: none;
       display: flex;
       justify-content: center;
       align-items: center;
-      font-size: 26px;
-      color: #ff9d00;
-      touch-action: none;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
       backdrop-filter: blur(4px);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
     }
-    .btn-touch:active, .btn-touch.active {
-      background: rgba(255, 140, 0, 0.8);
-      color: #ffffff;
-      border-color: #ffaa00;
-      transform: scale(0.95);
+    #joystick-knob {
+      width: 50px;
+      height: 50px;
+      background: rgba(255, 140, 0, 0.85);
+      border: 2px solid #ffaa00;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(255, 140, 0, 0.6);
+      transition: transform 0.05s ease-out;
+      pointer-events: none;
     }
 
+    /* PULSANTE SALTO IN BASSO A DESTRA */
     #btn-jump {
       position: absolute;
       bottom: 30px;
@@ -127,9 +127,9 @@
     <button id="restart-btn" onclick="resetGame()">Ricomincia</button>
   </div>
 
-  <div id="dpad-side">
-    <div class="btn-touch" id="btn-left">◀</div>
-    <div class="btn-touch" id="btn-right">▶</div>
+  <!-- Controlli: Analogico a sinistra, Salto a destra -->
+  <div id="joystick-container">
+    <div id="joystick-knob"></div>
   </div>
 
   <div id="btn-jump">SALTO</div>
@@ -143,11 +143,9 @@
     let timeLeft = 40;
     let timerInterval;
 
-    const touchState = {
-      left: false,
-      right: false,
-      jump: false
-    };
+    // Stato analogico e comandi
+    let analogX = 0; // -1 (Sinistra), 0 (Fermo), +1 (Destra)
+    let isJumpPressed = false;
 
     const moveSpeed = 0.16;
     let velocityY = 0;
@@ -157,10 +155,9 @@
     const groundY = 0.8;
     const foregroundZ = 2.0;
 
-    // Dimensioni fisiche del personaggio
     const playerHalfWidth = 0.5;
     const playerHeight = 1.6;
-    const playerHalfHeight = playerHeight / 2; // Offset per non far compenetrare la base
+    const playerHalfHeight = playerHeight / 2;
 
     const platforms = [
       { start: -10, end: 15 },
@@ -468,62 +465,103 @@
       }, 1000);
     }
 
+    // GESTIONE DEL JOYSTICK ANALOGICO E DEL BOTTONE SALTO
     function setupTouchControls() {
-      const bindBtn = (id, key) => {
-        const btn = document.getElementById(id);
-        
-        const start = (e) => {
-          if (e.cancelable) e.preventDefault();
-          touchState[key] = true;
-          btn.classList.add('active');
-        };
+      const container = document.getElementById('joystick-container');
+      const knob = document.getElementById('joystick-knob');
+      const maxDistance = 35; // Raggio di scorrimento del pomello analogico
 
-        const end = (e) => {
-          if (e.cancelable) e.preventDefault();
-          touchState[key] = false;
-          btn.classList.remove('active');
-        };
+      const handleMove = (clientX, clientY) => {
+        const rect = container.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const deltaX = clientX - centerX;
 
-        btn.addEventListener('touchstart', start, { passive: false });
-        btn.addEventListener('touchend', end, { passive: false });
-        btn.addEventListener('mousedown', start);
-        btn.addEventListener('mouseup', end);
+        // Limita l'offset orizzontale
+        const clampedX = Math.max(-maxDistance, Math.min(maxDistance, deltaX));
+        knob.style.transform = `translateX(${clampedX}px)`;
+
+        // Normalizza il valore analogico tra -1 e +1
+        analogX = clampedX / maxDistance;
       };
 
-      bindBtn('btn-left', 'left');
-      bindBtn('btn-right', 'right');
-      bindBtn('btn-jump', 'jump');
+      const resetAnalog = () => {
+        analogX = 0;
+        knob.style.transform = `translateX(0px)`;
+      };
+
+      // Eventi Touch e Mouse per Joystick
+      container.addEventListener('touchstart', (e) => {
+        if (e.cancelable) e.preventDefault();
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: false });
+
+      container.addEventListener('touchmove', (e) => {
+        if (e.cancelable) e.preventDefault();
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: false });
+
+      container.addEventListener('touchend', resetAnalog);
+      container.addEventListener('touchcancel', resetAnalog);
+
+      // Supporto Mouse per test da PC
+      let isMouseDown = false;
+      container.addEventListener('mousedown', (e) => {
+        isMouseDown = true;
+        handleMove(e.clientX, e.clientY);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (isMouseDown) handleMove(e.clientX, e.clientY);
+      });
+      window.addEventListener('mouseup', () => {
+        if (isMouseDown) {
+          isMouseDown = false;
+          resetAnalog();
+        }
+      });
+
+      // Gestione Pulsante Salto
+      const btnJump = document.getElementById('btn-jump');
+      const jumpStart = (e) => {
+        if (e.cancelable) e.preventDefault();
+        isJumpPressed = true;
+        btnJump.classList.add('active');
+      };
+      const jumpEnd = (e) => {
+        if (e.cancelable) e.preventDefault();
+        isJumpPressed = false;
+        btnJump.classList.remove('active');
+      };
+
+      btnJump.addEventListener('touchstart', jumpStart, { passive: false });
+      btnJump.addEventListener('touchend', jumpEnd, { passive: false });
+      btnJump.addEventListener('mousedown', jumpStart);
+      btnJump.addEventListener('mouseup', jumpEnd);
     }
 
-    // FISICA DI COLLISIONE PERFETTA SULLE 6 FACCE DEGLI OSTACOLI
     function updatePlayerMovement() {
       if (!player || isGameOver) return;
 
-      // 1. Fisica verticale (Gravità e Salto)
+      // 1. Fisica verticale (Salto e Gravità)
       player.position.y += velocityY;
       velocityY += gravity;
 
       const currentX = player.position.x;
       const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
-      
-      // La base dei piedi deve stare a groundY (offset del centro = groundY + playerHalfHeight)
       let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
 
-      // Controlla atterraggio sulla CIMA degli ostacoli
+      // Atterraggio sugli ostacoli
       obstacles.forEach(obs => {
-        const obsTopCenter = obs.height + playerHalfHeight; // Centro del giocatore quando sta in cima
+        const obsTopCenter = obs.height + playerHalfHeight;
         const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth + 0.05;
         const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth - 0.05;
 
         if (player.position.x > obsMinX && player.position.x < obsMaxX) {
-          // Se sta cadendo ed è al di sopra o vicino alla superficie dell'ostacolo
           if (player.position.y >= obsTopCenter - 0.2) {
             floorY = Math.max(floorY, obsTopCenter);
           }
         }
       });
 
-      // Atterraggio
       if (player.position.y <= floorY) {
         player.position.y = floorY;
         velocityY = 0;
@@ -532,31 +570,29 @@
         isGrounded = false;
       }
 
-      // 2. Movimento Orizzontale (Asse X) con Blocco sulle pareti laterali
+      // 2. Movimento Orizzontale gestito dall'Analogico (analogX)
       let intendedX = player.position.x;
 
-      if (touchState.left) {
-        intendedX -= moveSpeed;
-        player.rotation.y = -Math.PI / 2;
-      }
-      if (touchState.right) {
-        intendedX += moveSpeed;
-        player.rotation.y = Math.PI / 2;
+      if (Math.abs(analogX) > 0.15) { // Deadzone per evitare micro-movimenti
+        intendedX += analogX * moveSpeed;
+        
+        if (analogX > 0) {
+          player.rotation.y = Math.PI / 2;
+        } else if (analogX < 0) {
+          player.rotation.y = -Math.PI / 2;
+        }
       }
 
-      // Blocco collisioni laterali sugli ostacoli
+      // Blocco collisioni laterali
       obstacles.forEach(obs => {
         const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth;
         const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth;
         const obsTopCenter = obs.height + playerHalfHeight;
 
-        // Se il centro del personaggio si trova sotto la cima dell'ostacolo (parete)
         if (player.position.y < obsTopCenter - 0.1) {
-          // Blocco verso Destra
           if (player.position.x <= obsMinX && intendedX > obsMinX) {
             intendedX = obsMinX;
           }
-          // Blocco verso Sinistra
           if (player.position.x >= obsMaxX && intendedX < obsMaxX) {
             intendedX = obsMaxX;
           }
@@ -567,12 +603,12 @@
       player.position.z = foregroundZ;
 
       // Comando Salto
-      if (touchState.jump && isGrounded) {
+      if (isJumpPressed && isGrounded) {
         velocityY = jumpStrength;
         isGrounded = false;
       }
 
-      // Caduta nel vuoto
+      // Sconfitta per caduta nel vuoto
       if (player.position.y < -6) {
         endGame(false, "Sei caduto nell'oscurità!");
       }
