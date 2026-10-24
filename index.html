@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
-  <title>Walle08 - Platformer 2.5D with 3D Trees</title>
+  <title>Walle08 - Halloween Nightmare Platformer</title>
   <style>
     * {
       box-sizing: border-box;
@@ -15,7 +15,7 @@
       margin: 0;
       overflow: hidden;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #87ceeb;
+      background: #0d0814;
       color: #ffffff;
     }
     #canvas-container {
@@ -28,32 +28,34 @@
       position: absolute;
       top: 15px;
       left: 15px;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(20, 10, 30, 0.7);
       backdrop-filter: blur(8px);
       padding: 10px 18px;
       border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 140, 0, 0.4);
       pointer-events: none;
       z-index: 10;
       font-size: 20px;
       font-weight: bold;
+      color: #ff9d00;
+      box-shadow: 0 0 15px rgba(255, 120, 0, 0.2);
     }
 
-    /* Schermata Game Over / Vittoria */
+    /* Schermata Game Over / Vittoria Halloween */
     #game-over-overlay {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.8); display: flex; flex-direction: column;
+      background: rgba(10, 5, 15, 0.9); display: flex; flex-direction: column;
       justify-content: center; align-items: center; color: white; z-index: 30;
     }
     #game-over-overlay.hidden { display: none; }
-    #game-over-overlay h1 { font-size: 42px; margin-bottom: 10px; }
-    #game-over-overlay p { font-size: 18px; margin-bottom: 20px; }
+    #game-over-overlay h1 { font-size: 42px; margin-bottom: 10px; text-shadow: 0 0 10px #ff4500; }
+    #game-over-overlay p { font-size: 18px; margin-bottom: 20px; color: #dcdcdc; }
     #restart-btn {
       padding: 12px 28px; font-size: 18px; font-weight: bold; color: #fff;
-      background: #27ae60; border: none; border-radius: 8px; cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: background 0.2s;
+      background: #d35400; border: none; border-radius: 8px; cursor: pointer;
+      box-shadow: 0 4px 10px rgba(211, 84, 0, 0.5); transition: background 0.2s;
     }
-    #restart-btn:hover { background: #2ecc71; }
+    #restart-btn:hover { background: #e67e22; }
 
     /* CONTROLLI TOUCH */
     #dpad-side {
@@ -67,21 +69,22 @@
     .btn-touch {
       width: 70px;
       height: 70px;
-      background: rgba(255, 255, 255, 0.3);
-      border: 2px solid rgba(255, 255, 255, 0.6);
+      background: rgba(40, 20, 60, 0.5);
+      border: 2px solid rgba(255, 140, 0, 0.6);
       border-radius: 15px;
       display: flex;
       justify-content: center;
       align-items: center;
       font-size: 26px;
-      color: white;
+      color: #ff9d00;
       touch-action: none;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
       backdrop-filter: blur(4px);
     }
     .btn-touch:active, .btn-touch.active {
-      background: rgba(46, 204, 113, 0.8);
-      border-color: #2ecc71;
+      background: rgba(255, 140, 0, 0.8);
+      color: #ffffff;
+      border-color: #ffaa00;
       transform: scale(0.95);
     }
 
@@ -92,8 +95,8 @@
       width: 80px;
       height: 80px;
       border-radius: 50%;
-      background: rgba(231, 76, 60, 0.85);
-      border: 2px solid rgba(255, 255, 255, 0.6);
+      background: rgba(142, 68, 173, 0.85);
+      border: 2px solid rgba(255, 140, 0, 0.7);
       color: white;
       font-size: 14px;
       font-weight: bold;
@@ -102,11 +105,11 @@
       align-items: center;
       z-index: 20;
       touch-action: none;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      box-shadow: 0 4px 15px rgba(142, 68, 173, 0.6);
       backdrop-filter: blur(4px);
     }
     #btn-jump:active, #btn-jump.active {
-      background: rgba(231, 76, 60, 1);
+      background: rgba(155, 89, 182, 1);
       transform: scale(0.95);
     }
   </style>
@@ -140,7 +143,6 @@
     let scene, camera, renderer, player, finishRing;
     let isGameOver = false;
 
-    // Timer del livello
     let timeLeft = 40;
     let timerInterval;
 
@@ -158,7 +160,6 @@
     const groundY = 0.8;
     const foregroundZ = 2.0;
 
-    // Struttura piattaforme e ostacoli fissi
     const platforms = [
       { start: -10, end: 15 },
       { start: 20, end: 40 },
@@ -173,7 +174,6 @@
       { x: 88, width: 1.6, height: 1.6 }
     ];
 
-    // Sfere di fuoco orizzontali
     const fireballs = [
       { minX: 8, maxX: 14, posY: 1.5, speed: 0.08, dir: 1, radius: 0.6, mesh: null },
       { minX: 22, maxX: 28, posY: 1.5, speed: 0.1, dir: 1, radius: 0.6, mesh: null },
@@ -191,12 +191,64 @@
       animate();
     };
 
+    // Generatore procedurale della texture del cielo di Halloween
+    function generateHalloweenSkyTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      // Gradiente cielo notturno cupo (viola scuro / arancione sinistro all'orizzonte)
+      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      grad.addColorStop(0, '#05020a');
+      grad.addColorStop(0.5, '#180a29');
+      grad.addColorStop(0.85, '#3a1322');
+      grad.addColorStop(1, '#5e2105');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Luna piena spettrale
+      const moonX = 750;
+      const moonY = 250;
+      const moonRadius = 90;
+
+      // Bagliore della luna
+      const moonGlow = ctx.createRadialGradient(moonX, moonY, moonRadius * 0.5, moonX, moonY, moonRadius * 3);
+      moonGlow.addColorStop(0, 'rgba(255, 230, 180, 0.8)');
+      moonGlow.addColorStop(0.4, 'rgba(255, 140, 0, 0.25)');
+      moonGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = moonGlow;
+      ctx.beginPath();
+      ctx.arc(moonX, moonY, moonRadius * 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Disco lunare
+      ctx.fillStyle = '#fff4db';
+      ctx.beginPath();
+      ctx.arc(moonX, moonY, moonRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Stelle fievoli
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 150; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * (canvas.height * 0.7);
+        const r = Math.random() * 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      return new THREE.CanvasTexture(canvas);
+    }
+
     function init() {
       const container = document.getElementById('canvas-container');
 
-      // 1. Scena
+      // 1. Scena & Nebbia Tetramente Illuminata
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x87ceeb);
+      scene.background = generateHalloweenSkyTexture();
+      scene.fog = new THREE.FogExp2(0x1a0a2a, 0.015);
 
       // 2. Camera
       camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -209,23 +261,21 @@
       renderer.shadowMap.enabled = true;
       container.appendChild(renderer.domElement);
 
-      // 4. Luci
-      const ambientLight = new THREE.AmbientLight(0xffffff, 1.8);
+      // 4. Luci di Ambiente Spettrale (Tonalità Arancio / Viola)
+      const ambientLight = new THREE.AmbientLight(0x8a55a5, 1.2);
       scene.add(ambientLight);
 
-      const mainLight = new THREE.DirectionalLight(0xffffff, 2.0);
-      mainLight.position.set(10, 20, 15);
-      mainLight.castShadow = true;
-      scene.add(mainLight);
+      const moonLight = new THREE.DirectionalLight(0xffa500, 1.5);
+      moonLight.position.set(10, 20, 15);
+      moonLight.castShadow = true;
+      scene.add(moonLight);
 
-      // 5. Creazione Percorso e Sfere di Fuoco
+      // 5. Creazione Percorso e Ostacoli
       createLevel();
       createFireballs();
-
-      // 6. Personaggio di Fallback Immediato
       createFallbackPlayer();
 
-      // 7. Caricamento walle08.glb e tree.glb
+      // 6. Caricamento Modelli GLTF
       if (typeof THREE.GLTFLoader !== 'undefined') {
         const loader = new THREE.GLTFLoader();
 
@@ -260,7 +310,7 @@
           (err) => console.warn("Modello walle08.glb non trovato, in uso il segnaposto.", err)
         );
 
-        // Caricamento Alberi 3D (tree.glb) nello Sfondo
+        // Caricamento Alberi 3D (tree.glb)
         loader.load(
           './tree.glb',
           (gltf) => {
@@ -295,7 +345,7 @@
             }
           },
           undefined,
-          (err) => console.warn("Modello tree.glb non trovato, mantenuta la scena base.", err)
+          (err) => console.warn("Modello tree.glb non trovato.", err)
         );
       }
 
@@ -316,10 +366,10 @@
     }
 
     function createLevel() {
-      const groundMat = new THREE.MeshLambertMaterial({ color: 0x47a042 });
-      const obstacleMat = new THREE.MeshLambertMaterial({ color: 0x7f8c8d });
+      // Terreno cupo stile notte di Halloween
+      const groundMat = new THREE.MeshLambertMaterial({ color: 0x22112a });
+      const obstacleMat = new THREE.MeshLambertMaterial({ color: 0x4a3b52 });
 
-      // Piattaforme
       platforms.forEach(p => {
         const length = p.end - p.start;
         const geo = new THREE.BoxGeometry(length, 2, 15);
@@ -329,7 +379,6 @@
         scene.add(mesh);
       });
 
-      // Ostacoli
       obstacles.forEach(obs => {
         const geo = new THREE.BoxGeometry(obs.width, obs.height, 3);
         const mesh = new THREE.Mesh(geo, obstacleMat);
@@ -341,7 +390,7 @@
 
       // Traguardo a X = 100
       const ringGeo = new THREE.TorusGeometry(2, 0.3, 16, 100);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0xffd700 });
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
       finishRing = new THREE.Mesh(ringGeo, ringMat);
       finishRing.position.set(100, 2.5, foregroundZ);
       scene.add(finishRing);
@@ -352,11 +401,11 @@
         const group = new THREE.Group();
 
         const geo = new THREE.SphereGeometry(fb.radius, 16, 16);
-        const mat = new THREE.MeshBasicMaterial({ color: 0xff4500 });
+        const mat = new THREE.MeshBasicMaterial({ color: 0xff3300 });
         const sphere = new THREE.Mesh(geo, mat);
         group.add(sphere);
 
-        const fireLight = new THREE.PointLight(0xff6600, 2, 5);
+        const fireLight = new THREE.PointLight(0xff6600, 2.5, 6);
         group.add(fireLight);
 
         group.position.set(fb.minX, fb.posY, foregroundZ);
@@ -387,7 +436,7 @@
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance < (fb.radius + 0.7)) {
-            endGame(false, "Sei stato colpito da una sfera di fuoco!");
+            endGame(false, "Sei stato colpito da una sfera di fuoco spettrale!");
           }
         }
       });
@@ -479,11 +528,11 @@
       }
 
       if (player.position.y < -6) {
-        endGame(false, "Sei caduto nel vuoto!");
+        endGame(false, "Sei caduto nell'oscurità!");
       }
 
       if (currentX >= 98) {
-        endGame(true, `Vittoria! Hai completato il percorso con ${timeLeft}s rimasti!`);
+        endGame(true, `Vittoria! Hai superato la notte di Halloween con ${timeLeft}s rimasti!`);
       }
 
       if (finishRing) finishRing.rotation.y += 0.02;
@@ -502,8 +551,8 @@
       const title = document.getElementById('status-title');
       const desc = document.getElementById('status-desc');
 
-      title.innerText = victory ? "VITTORIA! 🎉" : "MISSIONE FALLITA 💥";
-      title.style.color = victory ? "#2ecc71" : "#e74c3c";
+      title.innerText = victory ? "VITTORIA! 🎃" : "MISSIONE FALLITA 👻";
+      title.style.color = victory ? "#ff9d00" : "#ff3300";
       desc.innerText = message;
       overlay.classList.remove('hidden');
     }
