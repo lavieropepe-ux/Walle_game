@@ -41,7 +41,6 @@
       box-shadow: 0 0 15px rgba(255, 120, 0, 0.2);
     }
 
-    /* Schermata Game Over / Vittoria Halloween */
     #game-over-overlay {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(10, 5, 15, 0.9); display: flex; flex-direction: column;
@@ -57,7 +56,6 @@
     }
     #restart-btn:hover { background: #e67e22; }
 
-    /* CONTROLLI TOUCH */
     #dpad-side {
       position: absolute;
       bottom: 30px;
@@ -114,7 +112,6 @@
     }
   </style>
 
-  <!-- LIBRERIE THREE.JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
@@ -160,6 +157,10 @@
     const groundY = 0.8;
     const foregroundZ = 2.0;
 
+    // Dimensioni Bounding Box personaggio (Larghezza: 1.0, Altezza: 1.6)
+    const playerHalfWidth = 0.5;
+    const playerHeight = 1.6;
+
     const platforms = [
       { start: -10, end: 15 },
       { start: 20, end: 40 },
@@ -168,13 +169,14 @@
     ];
 
     const obstacles = [
-      { x: 5, width: 1.2, height: 1.2 },
-      { x: 30, width: 1.5, height: 1.5 },
-      { x: 58, width: 1.4, height: 1.4 },
-      { x: 88, width: 1.6, height: 1.6 }
+      { x: 5, width: 1.4, height: 1.4, depth: 3 },
+      { x: 30, width: 1.6, height: 1.6, depth: 3 },
+      { x: 58, width: 1.5, height: 1.5, depth: 3 },
+      { x: 88, width: 1.8, height: 1.8, depth: 3 }
     ];
 
-    const fireballs = [
+    // Zucche di Halloween ostacolo
+    const pumpkins = [
       { minX: 8, maxX: 14, posY: 1.5, speed: 0.08, dir: 1, radius: 0.6, mesh: null },
       { minX: 22, maxX: 28, posY: 1.5, speed: 0.1, dir: 1, radius: 0.6, mesh: null },
       { minX: 33, maxX: 39, posY: 2.8, speed: 0.09, dir: -1, radius: 0.6, mesh: null },
@@ -261,7 +263,7 @@
       scene.add(moonLight);
 
       createLevel();
-      createFireballs();
+      createPumpkins();
       createFallbackPlayer();
 
       if (typeof THREE.GLTFLoader !== 'undefined') {
@@ -342,7 +344,7 @@
 
     function createFallbackPlayer() {
       player = new THREE.Group();
-      const geo = new THREE.BoxGeometry(1.2, 1.6, 1.2);
+      const geo = new THREE.BoxGeometry(1.0, playerHeight, 1.0);
       const mat = new THREE.MeshLambertMaterial({ color: 0xe74c3c });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = true;
@@ -365,7 +367,7 @@
       });
 
       obstacles.forEach(obs => {
-        const geo = new THREE.BoxGeometry(obs.width, obs.height, 3);
+        const geo = new THREE.BoxGeometry(obs.width, obs.height, obs.depth);
         const mesh = new THREE.Mesh(geo, obstacleMat);
         mesh.position.set(obs.x, obs.height / 2, foregroundZ);
         mesh.castShadow = true;
@@ -380,47 +382,82 @@
       scene.add(finishRing);
     }
 
-    function createFireballs() {
-      fireballs.forEach(fb => {
+    // Creazione della Zucche di Halloween
+    function createPumpkins() {
+      pumpkins.forEach(p => {
         const group = new THREE.Group();
 
-        const geo = new THREE.SphereGeometry(fb.radius, 16, 16);
-        const mat = new THREE.MeshBasicMaterial({ color: 0xff3300 });
-        const sphere = new THREE.Mesh(geo, mat);
-        group.add(sphere);
+        // Corpo della Zucca (Sfera schiacciata arancione)
+        const pumpkinGeo = new THREE.SphereGeometry(p.radius, 16, 12);
+        pumpkinGeo.scale(1.2, 0.9, 1.0); // Schiacciata stile zucca
+        const pumpkinMat = new THREE.MeshStandardMaterial({ 
+          color: 0xe65100, 
+          roughness: 0.6,
+          metalness: 0.1 
+        });
+        const pumpkinMesh = new THREE.Mesh(pumpkinGeo, pumpkinMat);
+        pumpkinMesh.castShadow = true;
+        group.add(pumpkinMesh);
 
-        const fireLight = new THREE.PointLight(0xff6600, 2.5, 6);
+        // Picciolo Verde in cima
+        const stemGeo = new THREE.CylinderGeometry(0.05, 0.08, 0.3, 8);
+        const stemMat = new THREE.MeshBasicMaterial({ color: 0x2e7d32 });
+        const stem = new THREE.Mesh(stemGeo, stemMat);
+        stem.position.set(0, p.radius * 0.85, 0);
+        stem.rotation.z = -0.2;
+        group.add(stem);
+
+        // Occhi incandescenti intagliati
+        const eyeGeo = new THREE.ConeGeometry(0.12, 0.1, 3);
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffd600 });
+        
+        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+        leftEye.position.set(-0.2, 0.1, p.radius * 0.85);
+        leftEye.rotation.x = Math.PI / 2;
+        group.add(leftEye);
+
+        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+        rightEye.position.set(0.2, 0.1, p.radius * 0.85);
+        rightEye.rotation.x = Math.PI / 2;
+        group.add(rightEye);
+
+        // Bagliore di fuoco interno
+        const fireLight = new THREE.PointLight(0xff6d00, 3, 5);
+        fireLight.position.set(0, 0, p.radius * 0.5);
         group.add(fireLight);
 
-        group.position.set(fb.minX, fb.posY, foregroundZ);
-        fb.mesh = group;
-        scene.add(fb.mesh);
+        group.position.set(p.minX, p.posY, foregroundZ);
+        p.mesh = group;
+        scene.add(p.mesh);
       });
     }
 
-    function updateFireballs() {
-      fireballs.forEach(fb => {
-        if (!fb.mesh) return;
+    function updatePumpkins() {
+      pumpkins.forEach(p => {
+        if (!p.mesh) return;
 
-        fb.mesh.position.x += fb.speed * fb.dir;
+        // Movimento orizzontale
+        p.mesh.position.x += p.speed * p.dir;
 
-        if (fb.mesh.position.x >= fb.maxX) {
-          fb.mesh.position.x = fb.maxX;
-          fb.dir = -1;
-        } else if (fb.mesh.position.x <= fb.minX) {
-          fb.mesh.position.x = fb.minX;
-          fb.dir = 1;
+        if (p.mesh.position.x >= p.maxX) {
+          p.mesh.position.x = p.maxX;
+          p.dir = -1;
+        } else if (p.mesh.position.x <= p.minX) {
+          p.mesh.position.x = p.minX;
+          p.dir = 1;
         }
 
-        fb.mesh.rotation.z += 0.08;
+        // Rotazione decorativa
+        p.mesh.rotation.y += 0.03 * p.dir;
 
+        // Collisione con Walle08
         if (player && !isGameOver) {
-          const dx = player.position.x - fb.mesh.position.x;
-          const dy = player.position.y - fb.mesh.position.y;
+          const dx = player.position.x - p.mesh.position.x;
+          const dy = player.position.y - p.mesh.position.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
 
-          if (distance < (fb.radius + 0.7)) {
-            endGame(false, "Sei stato colpito da una sfera di fuoco spettrale!");
+          if (distance < (p.radius + 0.6)) {
+            endGame(false, "Sei stato colpito da una zucca stregata!");
           }
         }
       });
@@ -466,81 +503,96 @@
       bindBtn('btn-jump', 'jump');
     }
 
+    // SISTEMA DI COLLISIONE PERFETTO (AABB 3D)
     function updatePlayerMovement() {
       if (!player || isGameOver) return;
 
-      let nextX = player.position.x;
-
-      if (touchState.left) {
-        nextX -= moveSpeed;
-        player.rotation.y = -Math.PI / 2;
-      }
-      if (touchState.right) {
-        nextX += moveSpeed;
-        player.rotation.y = Math.PI / 2;
-      }
-
-      // Applica gravità e movimento verticale prima di gestire i pavimenti/ostacoli
+      // 1. Applica prima la fisica del Salto e della Gravità sull'asse Y
       player.position.y += velocityY;
       velocityY += gravity;
 
-      // 1. Calcola l'altezza di atterraggio di base (Livello del terreno o vuoto)
+      // Determinazione dell'altezza del pavimento (Terreno o Vuoto)
       const currentX = player.position.x;
       const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
-      let targetFloorY = onPlatform ? groundY : -99;
+      let floorY = onPlatform ? groundY : -99;
 
-      // 2. Gestione collisione con la FACCIA SUPERIORE e i LATI degli ostacoli
-      let canMoveX = true;
-
+      // Gestione atterraggio sugli OSTACOLI (Collisione dall'alto)
       obstacles.forEach(obs => {
-        const obsTopY = obs.height + groundY; // Altezza della superficie dell'ostacolo
-        const isHorizontalOver = Math.abs(nextX - obs.x) < (obs.width / 2 + 0.4);
+        const obsTop = obs.height;
+        const obsLeft = obs.x - (obs.width / 2) - playerHalfWidth;
+        const obsRight = obs.x + (obs.width / 2) + playerHalfWidth;
 
-        if (isHorizontalOver) {
-          // Se si trova sopra la cima dell'ostacolo (o sta atterrando)
-          if (player.position.y >= obsTopY - 0.2) {
-            targetFloorY = Math.max(targetFloorY, obsTopY);
-          } else {
-            // Se si trova più in basso rispetto alla superficie, blocca il movimento laterale
-            canMoveX = false;
+        // Se il personaggio si trova sopra l'impronta orizzontale dell'ostacolo
+        if (player.position.x > obsLeft && player.position.x < obsRight) {
+          // Se la sua base è al di sopra della superficie dell'ostacolo
+          if (player.position.y >= obsTop - 0.2) {
+            floorY = Math.max(floorY, obsTop);
           }
         }
       });
 
-      // Se non ci sono ostacoli laterali a sbarrare la strada, muovi sull'asse X
-      if (canMoveX) {
-        player.position.x = nextX;
-      }
-
-      // 3. Gestione dell'atterraggio (Terreno o Superficie dell'ostacolo)
-      if (player.position.y <= targetFloorY) {
-        player.position.y = targetFloorY;
+      // Se tocca il terreno/superficie superiore
+      if (player.position.y <= floorY) {
+        player.position.y = floorY;
         velocityY = 0;
         isGrounded = true;
       } else {
         isGrounded = false;
       }
 
+      // 2. Calcola e applica il movimento orizzontale (Asse X) con collisioni laterali
+      let intendedX = player.position.x;
+
+      if (touchState.left) {
+        intendedX -= moveSpeed;
+        player.rotation.y = -Math.PI / 2;
+      }
+      if (touchState.right) {
+        intendedX += moveSpeed;
+        player.rotation.y = Math.PI / 2;
+      }
+
+      // Verifica blocco laterale contro gli ostacoli
+      obstacles.forEach(obs => {
+        const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth;
+        const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth;
+        const obsTop = obs.height;
+
+        // Se si trova ad un'altezza inferiore rispetto al tetto dell'ostacolo
+        if (player.position.y < obsTop - 0.1) {
+          // Blocco quando ci si muove verso Destra
+          if (player.position.x <= obsMinX && intendedX > obsMinX) {
+            intendedX = obsMinX;
+          }
+          // Blocco quando ci si muove verso Sinistra
+          if (player.position.x >= obsMaxX && intendedX < obsMaxX) {
+            intendedX = obsMaxX;
+          }
+        }
+      });
+
+      player.position.x = intendedX;
       player.position.z = foregroundZ;
 
-      // Gestione del Salto
+      // Gestione Comando Salto
       if (touchState.jump && isGrounded) {
         velocityY = jumpStrength;
         isGrounded = false;
       }
 
-      // Caduta nel Vuoto
+      // Sconfitta per caduta nel vuoto
       if (player.position.y < -6) {
         endGame(false, "Sei caduto nell'oscurità!");
       }
 
-      // Vittoria
-      if (currentX >= 98) {
+      // Condizione di Vittoria
+      if (player.position.x >= 98) {
         endGame(true, `Vittoria! Hai superato la notte di Halloween con ${timeLeft}s rimasti!`);
       }
 
       if (finishRing) finishRing.rotation.y += 0.02;
 
+      // Inquadratura Telecamera stile Super Mario
       camera.position.x = player.position.x;
       camera.position.y = cameraHeight;
       camera.position.z = cameraDistance;
@@ -578,7 +630,7 @@
     function animate() {
       requestAnimationFrame(animate);
       updatePlayerMovement();
-      updateFireballs();
+      updatePumpkins();
       if (renderer && scene && camera) {
         renderer.render(scene, camera);
       }
