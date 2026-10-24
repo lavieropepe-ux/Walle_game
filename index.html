@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
-  <title>Walle08 - Platformer 2.5D with Timer</title>
+  <title>Walle08 - Platformer 2.5D with Fireballs</title>
   <style>
     * {
       box-sizing: border-box;
@@ -158,7 +158,7 @@
     const groundY = 0.8;
     const foregroundZ = 2.0;
 
-    // Struttura piattaforme e ostacoli
+    // Struttura piattaforme e ostacoli fissi
     const platforms = [
       { start: -10, end: 15 },
       { start: 20, end: 40 },
@@ -171,6 +171,15 @@
       { x: 30, width: 1.5, height: 1.5 },
       { x: 58, width: 1.4, height: 1.4 },
       { x: 88, width: 1.6, height: 1.6 }
+    ];
+
+    // Array delle sfere di fuoco
+    const fireballs = [
+      { x: 12, minY: 1.2, maxY: 4.5, speed: 0.04, dir: 1, radius: 0.6, mesh: null },
+      { x: 35, minY: 1.5, maxY: 5.0, speed: 0.05, dir: -1, radius: 0.6, mesh: null },
+      { x: 52, minY: 1.0, maxY: 4.0, speed: 0.06, dir: 1, radius: 0.6, mesh: null },
+      { x: 65, minY: 1.8, maxY: 5.2, speed: 0.045, dir: -1, radius: 0.6, mesh: null },
+      { x: 82, minY: 1.2, maxY: 4.8, speed: 0.055, dir: 1, radius: 0.6, mesh: null }
     ];
 
     const cameraHeight = 3.5;
@@ -208,8 +217,9 @@
       mainLight.castShadow = true;
       scene.add(mainLight);
 
-      // 5. Creazione Percorso
+      // 5. Creazione Percorso, Ostacoli e Sfere di Fuoco
       createLevel();
+      createFireballs();
 
       // 6. Personaggio di Fallback Immediato
       createFallbackPlayer();
@@ -295,7 +305,7 @@
       finishRing.position.set(100, 2.5, foregroundZ);
       scene.add(finishRing);
 
-      // Sfondo Alberi e Cespugli
+      // Sfondo Alberi
       const treeMatTrunk = new THREE.MeshLambertMaterial({ color: 0x5a3d28 });
       const treeMatLeaves = new THREE.MeshLambertMaterial({ color: 0x2d7d32 });
 
@@ -316,6 +326,58 @@
           scene.add(leaves);
         }
       }
+    }
+
+    function createFireballs() {
+      fireballs.forEach(fb => {
+        const group = new THREE.Group();
+
+        // Sfera luminosa di fuoco
+        const geo = new THREE.SphereGeometry(fb.radius, 16, 16);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xff4500 });
+        const sphere = new THREE.Mesh(geo, mat);
+        group.add(sphere);
+
+        // Luce puntiforme arancione per effetto bagliore
+        const fireLight = new THREE.PointLight(0xff6600, 2, 5);
+        group.add(fireLight);
+
+        group.position.set(fb.x, fb.minY, foregroundZ);
+        fb.mesh = group;
+        scene.add(fb.mesh);
+      });
+    }
+
+    function updateFireballs() {
+      fireballs.forEach(fb => {
+        if (!fb.mesh) return;
+
+        // Movimento verticale su e giù
+        fb.mesh.position.y += fb.speed * fb.dir;
+
+        if (fb.mesh.position.y >= fb.maxY) {
+          fb.mesh.position.y = fb.maxY;
+          fb.dir = -1;
+        } else if (fb.mesh.position.y <= fb.minY) {
+          fb.mesh.position.y = fb.minY;
+          fb.dir = 1;
+        }
+
+        // Piccola rotazione visiva
+        fb.mesh.rotation.z += 0.05;
+
+        // Controllo Collisione con Walle08
+        if (player && !isGameOver) {
+          const dx = player.position.x - fb.mesh.position.x;
+          const dy = player.position.y - fb.mesh.position.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          // Raggio di collisione combinato
+          if (distance < (fb.radius + 0.7)) {
+            endGame(false, "Sei stato colpito da una sfera di fuoco!");
+          }
+        }
+      });
     }
 
     function startTimer() {
@@ -372,7 +434,7 @@
         player.rotation.y = Math.PI / 2;
       }
 
-      // Collisioni ostacoli
+      // Collisioni ostacoli fissi
       let canMoveX = true;
       obstacles.forEach(obs => {
         const dist = Math.abs(nextX - obs.x);
@@ -454,6 +516,7 @@
     function animate() {
       requestAnimationFrame(animate);
       updatePlayerMovement();
+      updateFireballs();
       if (renderer && scene && camera) {
         renderer.render(scene, camera);
       }
