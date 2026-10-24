@@ -157,9 +157,10 @@
     const groundY = 0.8;
     const foregroundZ = 2.0;
 
-    // Dimensioni Bounding Box personaggio (Larghezza: 1.0, Altezza: 1.6)
+    // Dimensioni fisiche del personaggio
     const playerHalfWidth = 0.5;
     const playerHeight = 1.6;
+    const playerHalfHeight = playerHeight / 2; // Offset per non far compenetrare la base
 
     const platforms = [
       { start: -10, end: 15 },
@@ -175,7 +176,6 @@
       { x: 88, width: 1.8, height: 1.8, depth: 3 }
     ];
 
-    // Zucche di Halloween ostacolo
     const pumpkins = [
       { minX: 8, maxX: 14, posY: 1.5, speed: 0.08, dir: 1, radius: 0.6, mesh: null },
       { minX: 22, maxX: 28, posY: 1.5, speed: 0.1, dir: 1, radius: 0.6, mesh: null },
@@ -278,7 +278,7 @@
             const box = new THREE.Box3().setFromObject(loadedModel);
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = 2.2 / (maxDim || 1);
+            const scale = playerHeight / (maxDim || 1);
             
             loadedModel.scale.setScalar(scale);
             box.setFromObject(loadedModel);
@@ -287,7 +287,7 @@
 
             player = new THREE.Group();
             player.add(loadedModel);
-            player.position.set(0, groundY, foregroundZ);
+            player.position.set(0, groundY + playerHalfHeight, foregroundZ);
 
             player.traverse((child) => {
               if (child.isMesh) child.castShadow = true;
@@ -349,7 +349,7 @@
       const mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = true;
       player.add(mesh);
-      player.position.set(0, groundY, foregroundZ);
+      player.position.set(0, groundY + playerHalfHeight, foregroundZ);
       scene.add(player);
     }
 
@@ -382,14 +382,12 @@
       scene.add(finishRing);
     }
 
-    // Creazione della Zucche di Halloween
     function createPumpkins() {
       pumpkins.forEach(p => {
         const group = new THREE.Group();
 
-        // Corpo della Zucca (Sfera schiacciata arancione)
         const pumpkinGeo = new THREE.SphereGeometry(p.radius, 16, 12);
-        pumpkinGeo.scale(1.2, 0.9, 1.0); // Schiacciata stile zucca
+        pumpkinGeo.scale(1.2, 0.9, 1.0);
         const pumpkinMat = new THREE.MeshStandardMaterial({ 
           color: 0xe65100, 
           roughness: 0.6,
@@ -399,7 +397,6 @@
         pumpkinMesh.castShadow = true;
         group.add(pumpkinMesh);
 
-        // Picciolo Verde in cima
         const stemGeo = new THREE.CylinderGeometry(0.05, 0.08, 0.3, 8);
         const stemMat = new THREE.MeshBasicMaterial({ color: 0x2e7d32 });
         const stem = new THREE.Mesh(stemGeo, stemMat);
@@ -407,7 +404,6 @@
         stem.rotation.z = -0.2;
         group.add(stem);
 
-        // Occhi incandescenti intagliati
         const eyeGeo = new THREE.ConeGeometry(0.12, 0.1, 3);
         const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffd600 });
         
@@ -421,7 +417,6 @@
         rightEye.rotation.x = Math.PI / 2;
         group.add(rightEye);
 
-        // Bagliore di fuoco interno
         const fireLight = new THREE.PointLight(0xff6d00, 3, 5);
         fireLight.position.set(0, 0, p.radius * 0.5);
         group.add(fireLight);
@@ -436,7 +431,6 @@
       pumpkins.forEach(p => {
         if (!p.mesh) return;
 
-        // Movimento orizzontale
         p.mesh.position.x += p.speed * p.dir;
 
         if (p.mesh.position.x >= p.maxX) {
@@ -447,10 +441,8 @@
           p.dir = 1;
         }
 
-        // Rotazione decorativa
         p.mesh.rotation.y += 0.03 * p.dir;
 
-        // Collisione con Walle08
         if (player && !isGameOver) {
           const dx = player.position.x - p.mesh.position.x;
           const dy = player.position.y - p.mesh.position.y;
@@ -503,35 +495,35 @@
       bindBtn('btn-jump', 'jump');
     }
 
-    // SISTEMA DI COLLISIONE PERFETTO (AABB 3D)
+    // FISICA DI COLLISIONE PERFETTA SULLE 6 FACCE DEGLI OSTACOLI
     function updatePlayerMovement() {
       if (!player || isGameOver) return;
 
-      // 1. Applica prima la fisica del Salto e della Gravità sull'asse Y
+      // 1. Fisica verticale (Gravità e Salto)
       player.position.y += velocityY;
       velocityY += gravity;
 
-      // Determinazione dell'altezza del pavimento (Terreno o Vuoto)
       const currentX = player.position.x;
       const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
-      let floorY = onPlatform ? groundY : -99;
+      
+      // La base dei piedi deve stare a groundY (offset del centro = groundY + playerHalfHeight)
+      let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
 
-      // Gestione atterraggio sugli OSTACOLI (Collisione dall'alto)
+      // Controlla atterraggio sulla CIMA degli ostacoli
       obstacles.forEach(obs => {
-        const obsTop = obs.height;
-        const obsLeft = obs.x - (obs.width / 2) - playerHalfWidth;
-        const obsRight = obs.x + (obs.width / 2) + playerHalfWidth;
+        const obsTopCenter = obs.height + playerHalfHeight; // Centro del giocatore quando sta in cima
+        const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth + 0.05;
+        const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth - 0.05;
 
-        // Se il personaggio si trova sopra l'impronta orizzontale dell'ostacolo
-        if (player.position.x > obsLeft && player.position.x < obsRight) {
-          // Se la sua base è al di sopra della superficie dell'ostacolo
-          if (player.position.y >= obsTop - 0.2) {
-            floorY = Math.max(floorY, obsTop);
+        if (player.position.x > obsMinX && player.position.x < obsMaxX) {
+          // Se sta cadendo ed è al di sopra o vicino alla superficie dell'ostacolo
+          if (player.position.y >= obsTopCenter - 0.2) {
+            floorY = Math.max(floorY, obsTopCenter);
           }
         }
       });
 
-      // Se tocca il terreno/superficie superiore
+      // Atterraggio
       if (player.position.y <= floorY) {
         player.position.y = floorY;
         velocityY = 0;
@@ -540,7 +532,7 @@
         isGrounded = false;
       }
 
-      // 2. Calcola e applica il movimento orizzontale (Asse X) con collisioni laterali
+      // 2. Movimento Orizzontale (Asse X) con Blocco sulle pareti laterali
       let intendedX = player.position.x;
 
       if (touchState.left) {
@@ -552,19 +544,19 @@
         player.rotation.y = Math.PI / 2;
       }
 
-      // Verifica blocco laterale contro gli ostacoli
+      // Blocco collisioni laterali sugli ostacoli
       obstacles.forEach(obs => {
         const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth;
         const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth;
-        const obsTop = obs.height;
+        const obsTopCenter = obs.height + playerHalfHeight;
 
-        // Se si trova ad un'altezza inferiore rispetto al tetto dell'ostacolo
-        if (player.position.y < obsTop - 0.1) {
-          // Blocco quando ci si muove verso Destra
+        // Se il centro del personaggio si trova sotto la cima dell'ostacolo (parete)
+        if (player.position.y < obsTopCenter - 0.1) {
+          // Blocco verso Destra
           if (player.position.x <= obsMinX && intendedX > obsMinX) {
             intendedX = obsMinX;
           }
-          // Blocco quando ci si muove verso Sinistra
+          // Blocco verso Sinistra
           if (player.position.x >= obsMaxX && intendedX < obsMaxX) {
             intendedX = obsMaxX;
           }
@@ -574,25 +566,25 @@
       player.position.x = intendedX;
       player.position.z = foregroundZ;
 
-      // Gestione Comando Salto
+      // Comando Salto
       if (touchState.jump && isGrounded) {
         velocityY = jumpStrength;
         isGrounded = false;
       }
 
-      // Sconfitta per caduta nel vuoto
+      // Caduta nel vuoto
       if (player.position.y < -6) {
         endGame(false, "Sei caduto nell'oscurità!");
       }
 
-      // Condizione di Vittoria
+      // Vittoria
       if (player.position.x >= 98) {
         endGame(true, `Vittoria! Hai superato la notte di Halloween con ${timeLeft}s rimasti!`);
       }
 
       if (finishRing) finishRing.rotation.y += 0.02;
 
-      // Inquadratura Telecamera stile Super Mario
+      // Inquadratura Telecamera
       camera.position.x = player.position.x;
       camera.position.y = cameraHeight;
       camera.position.z = cameraDistance;
@@ -620,7 +612,7 @@
       document.getElementById('game-over-overlay').classList.add('hidden');
 
       if (player) {
-        player.position.set(0, groundY, foregroundZ);
+        player.position.set(0, groundY + playerHalfHeight, foregroundZ);
         velocityY = 0;
       }
 
