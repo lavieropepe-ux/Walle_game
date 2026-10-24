@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
-  <title>Walle08 - Nature Side Scroller</title>
+  <title>Walle08 - Mario Bros Style Platformer</title>
   <style>
     * {
       box-sizing: border-box;
@@ -43,7 +43,7 @@
       text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
     }
 
-    /* CONTROLLI SCORRIMENTO LATERALE */
+    /* CONTROLLI TOUCH */
     #dpad-side {
       position: absolute;
       bottom: 30px;
@@ -106,7 +106,7 @@
 <body>
 
   <div id="ui-overlay">
-    <h1>Walle08 - Nature Adventure</h1>
+    <h1>Walle08 - Platformer 2.5D</h1>
   </div>
 
   <div id="dpad-side">
@@ -127,13 +127,17 @@
       jump: false
     };
 
-    const moveSpeed = 0.15;
+    const moveSpeed = 0.16;
     let velocityY = 0;
-    const gravity = -0.015;
-    const jumpStrength = 0.35;
+    const gravity = -0.016;
+    const jumpStrength = 0.38;
     let isGrounded = true;
     const groundY = 0;
-    const foregroundZ = 2.0; // In primo piano davanti agli alberi
+    const foregroundZ = 2.0;
+
+    // Altezza e distanza fissa per la telecamera (Super Mario Style)
+    const cameraHeight = 3.5;
+    const cameraDistance = 14.0;
 
     window.onload = () => {
       init();
@@ -147,9 +151,9 @@
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x87ceeb);
 
-      // 2. Telecamera
-      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 2.5, 9);
+      // 2. Telecamera fissa stile Super Mario
+      camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, cameraHeight, cameraDistance);
 
       // 3. Renderer
       renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -167,10 +171,10 @@
       mainLight.castShadow = true;
       scene.add(mainLight);
 
-      // 5. Scenario Naturale (Sfondo Z <= 0)
+      // 5. Scenario Naturale (Alberi e Cespugli sullo Sfondo)
       createNatureEnvironment();
 
-      // 6. Personaggio di Fallback Immediato (Sempre presente fino a caricamento GLB)
+      // 6. Personaggio di Fallback Immediato
       createFallbackPlayer();
 
       // 7. Caricamento walle08.glb
@@ -179,25 +183,22 @@
         loader.load(
           './walle08.glb',
           (gltf) => {
-            console.log("File walle08.glb caricato con successo!");
+            console.log("Modello walle08.glb caricato!");
             if (player) scene.remove(player);
 
             const loadedModel = gltf.scene;
 
-            // Calcolo Bounding Box automatico per centrare e ridimensionare
             const box = new THREE.Box3().setFromObject(loadedModel);
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = 2.5 / (maxDim || 1);
+            const scale = 2.2 / (maxDim || 1);
             
             loadedModel.scale.setScalar(scale);
 
-            // Centra il punto d'origine al centro del modello
             box.setFromObject(loadedModel);
             const center = box.getCenter(new THREE.Vector3());
             loadedModel.position.sub(center);
 
-            // Gruppo contenitore per la gestione della posizione
             player = new THREE.Group();
             player.add(loadedModel);
             player.position.set(0, groundY + 0.8, foregroundZ);
@@ -213,7 +214,7 @@
           },
           undefined,
           (err) => {
-            console.error("ERRORE CARICAMENTO walle08.glb: Verificare che il file sia presente nella repository GitHub con il nome esatto in minuscolo.", err);
+            console.error("ERRORE caricamento walle08.glb:", err);
           }
         );
       }
@@ -234,7 +235,7 @@
     }
 
     function createNatureEnvironment() {
-      // Terreno
+      // Terreno del percorso
       const groundGeo = new THREE.BoxGeometry(300, 2, 15);
       const groundMat = new THREE.MeshLambertMaterial({ color: 0x47a042 });
       const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -246,9 +247,9 @@
       const treeMatLeaves = new THREE.MeshLambertMaterial({ color: 0x2d7d32 });
       const bushMat = new THREE.MeshLambertMaterial({ color: 0x388e3c });
 
-      // Alberi e Cespugli sullo sfondo
+      // Alberi e Cespugli arretrati rispetto al personaggio
       for (let x = -100; x <= 100; x += 6) {
-        if (Math.random() > 0.25) {
+        if (Math.random() > 0.2) {
           const zPos = -1.5 - Math.random() * 4; 
           const scale = 1.0 + Math.random() * 0.5;
 
@@ -265,7 +266,7 @@
           scene.add(leaves);
         }
 
-        if (Math.random() > 0.35) {
+        if (Math.random() > 0.3) {
           const zPos = -1.0 - Math.random() * 2;
           const bushGeo = new THREE.SphereGeometry(0.6 + Math.random() * 0.3, 8, 8);
           const bush = new THREE.Mesh(bushGeo, bushMat);
@@ -306,6 +307,7 @@
     function updatePlayerMovement() {
       if (!player) return;
 
+      // Movimento orizzontale
       if (touchState.left) {
         player.position.x -= moveSpeed;
         player.rotation.y = -Math.PI / 2;
@@ -317,6 +319,7 @@
 
       player.position.z = foregroundZ;
 
+      // Salto e gravità
       if (touchState.jump && isGrounded) {
         velocityY = jumpStrength;
         isGrounded = false;
@@ -331,10 +334,11 @@
         isGrounded = true;
       }
 
-      // La telecamera insegue il personaggio
+      // Telecamera fissa verticale che segue SOLO lo scorrimento orizzontale (X)
       camera.position.x = player.position.x;
-      camera.position.z = foregroundZ + 7;
-      camera.lookAt(player.position.x, player.position.y, foregroundZ);
+      camera.position.y = cameraHeight; // Non sale quando salta il personaggio!
+      camera.position.z = cameraDistance;
+      camera.lookAt(player.position.x, cameraHeight - 0.5, foregroundZ);
     }
 
     function animate() {
