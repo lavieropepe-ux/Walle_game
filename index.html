@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
-  <title>Walle08 - Platformer 2.5D with Obstacles</title>
+  <title>Walle08 - Platformer 2.5D with Timer</title>
   <style>
     * {
       box-sizing: border-box;
@@ -28,19 +28,15 @@
       position: absolute;
       top: 15px;
       left: 15px;
-      background: rgba(0, 0, 0, 0.4);
+      background: rgba(0, 0, 0, 0.5);
       backdrop-filter: blur(8px);
-      padding: 10px 15px;
+      padding: 10px 18px;
       border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.2);
       pointer-events: none;
       z-index: 10;
-    }
-    #ui-overlay h1 {
-      margin: 0;
-      font-size: 16px;
-      color: #ffffff;
-      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+      font-size: 20px;
+      font-weight: bold;
     }
 
     /* Schermata Game Over / Vittoria */
@@ -122,7 +118,7 @@
 <body>
 
   <div id="ui-overlay">
-    <h1>Walle08 - Platformer Adventure</h1>
+    ⏱️ Tempo: <span id="timer">40</span>s
   </div>
 
   <div id="game-over-overlay" class="hidden">
@@ -144,6 +140,10 @@
     let scene, camera, renderer, player, finishRing;
     let isGameOver = false;
 
+    // Timer del livello
+    let timeLeft = 40;
+    let timerInterval;
+
     const touchState = {
       left: false,
       right: false,
@@ -163,7 +163,7 @@
       { start: -10, end: 15 },
       { start: 20, end: 40 },
       { start: 47, end: 70 },
-      { start: 77, end: 110 } // Traguardo a X = 100
+      { start: 77, end: 110 }
     ];
 
     const obstacles = [
@@ -208,7 +208,7 @@
       mainLight.castShadow = true;
       scene.add(mainLight);
 
-      // 5. Creazione Percorso con Piattaforme e Vuoti
+      // 5. Creazione Percorso
       createLevel();
 
       // 6. Personaggio di Fallback Immediato
@@ -249,6 +249,7 @@
       }
 
       setupTouchControls();
+      startTimer();
       window.addEventListener('resize', onWindowResize);
     }
 
@@ -267,7 +268,7 @@
       const groundMat = new THREE.MeshLambertMaterial({ color: 0x47a042 });
       const obstacleMat = new THREE.MeshLambertMaterial({ color: 0x7f8c8d });
 
-      // Generazione Piattaforme separate dai vuoti
+      // Piattaforme
       platforms.forEach(p => {
         const length = p.end - p.start;
         const geo = new THREE.BoxGeometry(length, 2, 15);
@@ -277,7 +278,7 @@
         scene.add(mesh);
       });
 
-      // Generazione Ostacoli 3D da saltare
+      // Ostacoli
       obstacles.forEach(obs => {
         const geo = new THREE.BoxGeometry(obs.width, obs.height, 3);
         const mesh = new THREE.Mesh(geo, obstacleMat);
@@ -287,7 +288,7 @@
         scene.add(mesh);
       });
 
-      // Anello Traguardo a X = 100
+      // Traguardo a X = 100
       const ringGeo = new THREE.TorusGeometry(2, 0.3, 16, 100);
       const ringMat = new THREE.MeshBasicMaterial({ color: 0xffd700 });
       finishRing = new THREE.Mesh(ringGeo, ringMat);
@@ -299,7 +300,6 @@
       const treeMatLeaves = new THREE.MeshLambertMaterial({ color: 0x2d7d32 });
 
       for (let x = -10; x <= 110; x += 7) {
-        // Salta gli alberi se posizionati sopra i crateri
         const isOverHole = !platforms.some(p => x >= p.start && x <= p.end);
         if (isOverHole) continue;
 
@@ -316,6 +316,19 @@
           scene.add(leaves);
         }
       }
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (isGameOver) return;
+        timeLeft--;
+        document.getElementById('timer').innerText = timeLeft;
+
+        if (timeLeft <= 0) {
+          endGame(false, "Tempo Scaduto!");
+        }
+      }, 1000);
     }
 
     function setupTouchControls() {
@@ -350,7 +363,6 @@
 
       let nextX = player.position.x;
 
-      // Movimento laterale
       if (touchState.left) {
         nextX -= moveSpeed;
         player.rotation.y = -Math.PI / 2;
@@ -360,7 +372,7 @@
         player.rotation.y = Math.PI / 2;
       }
 
-      // Collisione con gli ostacoli (Rocce marroni)
+      // Collisioni ostacoli
       let canMoveX = true;
       obstacles.forEach(obs => {
         const dist = Math.abs(nextX - obs.x);
@@ -375,7 +387,6 @@
 
       player.position.z = foregroundZ;
 
-      // Salto
       if (touchState.jump && isGrounded) {
         velocityY = jumpStrength;
         isGrounded = false;
@@ -384,7 +395,6 @@
       player.position.y += velocityY;
       velocityY += gravity;
 
-      // Controllo se il personaggio si trova sopra una piattaforma verde
       const currentX = player.position.x;
       const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
 
@@ -394,19 +404,19 @@
         isGrounded = true;
       }
 
-      // Caduta nel Vuoto / Crantene
+      // Caduta nel Vuoto
       if (player.position.y < -6) {
         endGame(false, "Sei caduto nel vuoto!");
       }
 
-      // Vittoria: Raggiungimento del Traguardo
+      // Vittoria
       if (currentX >= 98) {
-        endGame(true, "Hai superato tutti gli ostacoli!");
+        endGame(true, `Vittoria! Hai completato il percorso con ${timeLeft}s rimasti!`);
       }
 
       if (finishRing) finishRing.rotation.y += 0.02;
 
-      // Telecamera fissa in altezza (Super Mario Style)
+      // Telecamera fissa stile Super Mario
       camera.position.x = player.position.x;
       camera.position.y = cameraHeight;
       camera.position.z = cameraDistance;
@@ -415,6 +425,8 @@
 
     function endGame(victory, message) {
       isGameOver = true;
+      clearInterval(timerInterval);
+
       const overlay = document.getElementById('game-over-overlay');
       const title = document.getElementById('status-title');
       const desc = document.getElementById('status-desc');
@@ -427,12 +439,16 @@
 
     function resetGame() {
       isGameOver = false;
+      timeLeft = 40;
+      document.getElementById('timer').innerText = timeLeft;
       document.getElementById('game-over-overlay').classList.add('hidden');
 
       if (player) {
         player.position.set(0, groundY, foregroundZ);
         velocityY = 0;
       }
+
+      startTimer();
     }
 
     function animate() {
