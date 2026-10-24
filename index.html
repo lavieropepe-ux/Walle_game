@@ -56,7 +56,7 @@
     }
     #restart-btn:hover { background: #e67e22; }
 
-    /* JOYSTICK ANALOGICO IN BASSO A SINISTRA */
+    /* JOYSTICK ANALOGICO */
     #joystick-container {
       position: absolute;
       bottom: 25px;
@@ -85,7 +85,7 @@
       pointer-events: none;
     }
 
-    /* PULSANTE SALTO IN BASSO A DESTRA */
+    /* PULSANTE SALTO */
     #btn-jump {
       position: absolute;
       bottom: 30px;
@@ -127,7 +127,6 @@
     <button id="restart-btn" onclick="resetGame()">Ricomincia</button>
   </div>
 
-  <!-- Controlli: Analogico a sinistra, Salto a destra -->
   <div id="joystick-container">
     <div id="joystick-knob"></div>
   </div>
@@ -143,8 +142,7 @@
     let timeLeft = 40;
     let timerInterval;
 
-    // Stato analogico e comandi
-    let analogX = 0; // -1 (Sinistra), 0 (Fermo), +1 (Destra)
+    let analogX = 0;
     let isJumpPressed = false;
 
     const moveSpeed = 0.16;
@@ -152,7 +150,9 @@
     const gravity = -0.016;
     const jumpStrength = 0.38;
     let isGrounded = true;
-    const groundY = 0.8;
+    
+    // PERFETTO ALLINEAMENTO TERRENO
+    const groundY = 0.0; // Superficie superiore del terreno erboso
     const foregroundZ = 2.0;
 
     const playerHalfWidth = 0.5;
@@ -174,12 +174,12 @@
     ];
 
     const pumpkins = [
-      { minX: 8, maxX: 14, posY: 1.5, speed: 0.08, dir: 1, radius: 0.6, mesh: null },
-      { minX: 22, maxX: 28, posY: 1.5, speed: 0.1, dir: 1, radius: 0.6, mesh: null },
-      { minX: 33, maxX: 39, posY: 2.8, speed: 0.09, dir: -1, radius: 0.6, mesh: null },
-      { minX: 50, maxX: 56, posY: 1.5, speed: 0.11, dir: 1, radius: 0.6, mesh: null },
-      { minX: 61, maxX: 68, posY: 2.6, speed: 0.1, dir: -1, radius: 0.6, mesh: null },
-      { minX: 80, maxX: 86, posY: 1.5, speed: 0.12, dir: 1, radius: 0.6, mesh: null }
+      { minX: 8, maxX: 14, posY: 0.8, speed: 0.08, dir: 1, radius: 0.6, mesh: null },
+      { minX: 22, maxX: 28, posY: 0.8, speed: 0.1, dir: 1, radius: 0.6, mesh: null },
+      { minX: 33, maxX: 39, posY: 2.1, speed: 0.09, dir: -1, radius: 0.6, mesh: null },
+      { minX: 50, maxX: 56, posY: 0.8, speed: 0.11, dir: 1, radius: 0.6, mesh: null },
+      { minX: 61, maxX: 68, posY: 1.9, speed: 0.1, dir: -1, radius: 0.6, mesh: null },
+      { minX: 80, maxX: 86, posY: 0.8, speed: 0.12, dir: 1, radius: 0.6, mesh: null }
     ];
 
     const cameraHeight = 3.5;
@@ -354,6 +354,7 @@
       const groundMat = new THREE.MeshLambertMaterial({ color: 0x22112a });
       const obstacleMat = new THREE.MeshLambertMaterial({ color: 0x4a3b52 });
 
+      // Terreno a Y = -1 con altezza 2 (Superficie superiore = 0.0)
       platforms.forEach(p => {
         const length = p.end - p.start;
         const geo = new THREE.BoxGeometry(length, 2, 15);
@@ -465,22 +466,19 @@
       }, 1000);
     }
 
-    // GESTIONE DEL JOYSTICK ANALOGICO E DEL BOTTONE SALTO
     function setupTouchControls() {
       const container = document.getElementById('joystick-container');
       const knob = document.getElementById('joystick-knob');
-      const maxDistance = 35; // Raggio di scorrimento del pomello analogico
+      const maxDistance = 35;
 
       const handleMove = (clientX, clientY) => {
         const rect = container.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const deltaX = clientX - centerX;
 
-        // Limita l'offset orizzontale
         const clampedX = Math.max(-maxDistance, Math.min(maxDistance, deltaX));
         knob.style.transform = `translateX(${clampedX}px)`;
 
-        // Normalizza il valore analogico tra -1 e +1
         analogX = clampedX / maxDistance;
       };
 
@@ -489,7 +487,6 @@
         knob.style.transform = `translateX(0px)`;
       };
 
-      // Eventi Touch e Mouse per Joystick
       container.addEventListener('touchstart', (e) => {
         if (e.cancelable) e.preventDefault();
         handleMove(e.touches[0].clientX, e.touches[0].clientY);
@@ -503,7 +500,6 @@
       container.addEventListener('touchend', resetAnalog);
       container.addEventListener('touchcancel', resetAnalog);
 
-      // Supporto Mouse per test da PC
       let isMouseDown = false;
       container.addEventListener('mousedown', (e) => {
         isMouseDown = true;
@@ -519,7 +515,6 @@
         }
       });
 
-      // Gestione Pulsante Salto
       const btnJump = document.getElementById('btn-jump');
       const jumpStart = (e) => {
         if (e.cancelable) e.preventDefault();
@@ -547,6 +542,8 @@
 
       const currentX = player.position.x;
       const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
+      
+      // La base del personaggio tocca perfettamente groundY = 0.0 (centro a 0.8)
       let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
 
       // Atterraggio sugli ostacoli
@@ -573,7 +570,7 @@
       // 2. Movimento Orizzontale gestito dall'Analogico (analogX)
       let intendedX = player.position.x;
 
-      if (Math.abs(analogX) > 0.15) { // Deadzone per evitare micro-movimenti
+      if (Math.abs(analogX) > 0.15) {
         intendedX += analogX * moveSpeed;
         
         if (analogX > 0) {
