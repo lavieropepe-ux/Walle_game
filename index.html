@@ -33,15 +33,10 @@
     }
   </style>
 
-  <!-- Importmap per caricare Three.js via ES Modules -->
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-      }
-    }
-  </script>
+  <!-- Libreria Three.js classica tramite CDN globale -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Loader per file GLTF/GLB -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
 
@@ -56,15 +51,12 @@
   <div id="game-over-overlay" class="hidden">
     <h1 id="status-title">GAME OVER</h1>
     <p id="status-desc">Sei caduto nel vuoto!</p>
-    <button id="restart-btn">Ricomincia</button>
+    <button id="restart-btn" onclick="resetGame()">Ricomincia</button>
   </div>
 
   <div id="canvas-container"></div>
 
-  <script type="module">
-    import * as THREE from 'three';
-    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
+  <script>
     // --- VARIABILI DI GIOCO ---
     let scene, camera, renderer;
     let player, finishLine;
@@ -77,4 +69,266 @@
     // Fisica personaggio
     let velocityY = 0;
     const gravity = -0.015;
-    const jumpStrength = 0.
+    const jumpStrength = 0.35;
+    let isGrounded = false;
+    const moveSpeed = 0.15;
+
+    // Inizializza non appena la pagina è completamente caricata
+    window.onload = () => {
+      init();
+      animate();
+    };
+
+    function init() {
+      const container = document.getElementById('canvas-container');
+
+      // 1. Scena & Camera
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87ceeb);
+      scene.fog = new THREE.FogExp2(0x87ceeb, 0.015);
+
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 5, 10);
+
+      // 2. Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      container.appendChild(renderer.domElement);
+
+      // 3. Luci
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+      dirLight.position.set(20, 40, 20);
+      dirLight.castShadow = true;
+      scene.add(dirLight);
+
+      // 4. Creazione del Personaggio (Cubo rosso iniziale immediato)
+      createFallbackPlayer();
+
+      // Proviamo a caricare il file 'walle08.glb'
+      if (typeof THREE.GLTFLoader !== 'undefined') {
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+          './walle08.glb',
+          (gltf) => {
+            console.log("Modello walle08.glb caricato!");
+            if (player) scene.remove(player);
+
+            player = gltf.scene;
+            player.scale.set(1, 1, 1);
+            player.position.set(0, 1, 0);
+
+            player.traverse((child) => {
+              if (child.isMesh) child.castShadow = true;
+            });
+
+            scene.add(player);
+          },
+          undefined,
+          (err) => {
+            console.warn("Impossibile trovare walle08.glb. Si usera il cubo segnaposto.", err);
+          }
+        );
+      }
+
+      // 5. Creazione Mondo
+      createWorld();
+
+      // 6. Generazione Foglie Ostacolo
+      createLeaves();
+
+      // 7. Event Listener
+      window.addEventListener('keydown', (e) => keys[e.code] = true);
+      window.addEventListener('keyup', (e) => keys[e.code] = false);
+      window.addEventListener('resize', onWindowResize);
+
+      startTimer();
+    }
+
+    function createFallbackPlayer() {
+      const geo = new THREE.BoxGeometry(1, 1.5, 1);
+      const mat = new THREE.MeshLambertMaterial({ color: 0xff3333 });
+      player = new THREE.Mesh(geo, mat);
+      player.position.set(0, 1, 0);
+      player.castShadow = true;
+      scene.add(player);
+    }
+
+    function createWorld() {
+      const matGround = new THREE.MeshLambertMaterial({ color: 0x2e8b57 });
+      
+      // Piattaforma 1
+      const startPlatform = new THREE.Mesh(new THREE.BoxGeometry(10, 1, 15), matGround);
+      startPlatform.position.set(0, -0.5, 0);
+      startPlatform.receiveShadow = true;
+      scene.add(startPlatform);
+
+      // Piattaforma 2
+      const midPlatform = new THREE.Mesh(new THREE.BoxGeometry(8, 1, 20), matGround);
+      midPlatform.position.set(0, -0.5, -25);
+      midPlatform.receiveShadow = true;
+      scene.add(midPlatform);
+
+      // Piattaforma Traguardo
+      const finishPlatform = new THREE.Mesh(new THREE.BoxGeometry(10, 1, 10), new THREE.MeshLambertMaterial({ color: 0xf1c40f }));
+      finishPlatform.position.set(0, -0.5, -50);
+      finishPlatform.receiveShadow = true;
+      scene.add(finishPlatform);
+
+      // Anello Traguardo
+      const finishGeo = new THREE.TorusGeometry(2, 0.2, 16, 100);
+      const finishMat = new THREE.MeshBasicMaterial({ color: 0xffd700 });
+      finishLine = new THREE.Mesh(finishGeo, finishMat);
+      finishLine.position.set(0, 2, -50);
+      scene.add(finishLine);
+    }
+
+    function createLeaves() {
+      const leafGeo = new THREE.ConeGeometry(0.5, 1, 4);
+      const leafMat = new THREE.MeshLambertMaterial({ color: 0xe67e22 });
+
+      for (let i = 0; i < 25; i++) {
+        const leaf = new THREE.Mesh(leafGeo, leafMat);
+        resetLeaf(leaf);
+        leaf.position.z = -Math.random() * 45;
+        scene.add(leaf);
+        leaves.push(leaf);
+      }
+    }
+
+    function resetLeaf(leaf) {
+      leaf.position.x = (Math.random() - 0.5) * 12;
+      leaf.position.y = 10 + Math.random() * 10;
+      leaf.rotation.x = Math.random() * Math.PI;
+      leaf.rotation.z = Math.random() * Math.PI;
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (isGameOver) return;
+        timeLeft--;
+        document.getElementById('timer').innerText = timeLeft;
+
+        if (timeLeft <= 0) {
+          endGame(false, "Tempo Scaduto!");
+        }
+      }, 1000);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (!isGameOver && player) {
+        updatePlayer();
+        updateLeaves();
+        checkWinCondition();
+      }
+
+      if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+      }
+    }
+
+    function updatePlayer() {
+      if (keys['KeyW'] || keys['ArrowUp']) player.position.z -= moveSpeed;
+      if (keys['KeyS'] || keys['ArrowDown']) player.position.z += moveSpeed;
+      if (keys['KeyA'] || keys['ArrowLeft']) player.position.x -= moveSpeed;
+      if (keys['KeyD'] || keys['ArrowRight']) player.position.x += moveSpeed;
+
+      if ((keys['Space']) && isGrounded) {
+        velocityY = jumpStrength;
+        isGrounded = false;
+      }
+
+      player.position.y += velocityY;
+      velocityY += gravity;
+
+      const px = player.position.x;
+      const pz = player.position.z;
+      
+      let onPlatform = false;
+      if (Math.abs(px) < 5 && Math.abs(pz) < 7.5) onPlatform = true;
+      if (Math.abs(px) < 4 && Math.abs(pz - (-25)) < 10) onPlatform = true;
+      if (Math.abs(px) < 5 && Math.abs(pz - (-50)) < 5) onPlatform = true;
+
+      if (onPlatform && player.position.y <= 1) {
+        player.position.y = 1;
+        velocityY = 0;
+        isGrounded = true;
+      }
+
+      if (player.position.y < -10) {
+        endGame(false, "Sei caduto nel vuoto!");
+      }
+
+      camera.position.x = player.position.x;
+      camera.position.y = player.position.y + 4;
+      camera.position.z = player.position.z + 8;
+      camera.lookAt(player.position.x, player.position.y + 1, player.position.z);
+    }
+
+    function updateLeaves() {
+      leaves.forEach((leaf) => {
+        leaf.position.y -= 0.1;
+        leaf.rotation.y += 0.02;
+
+        if (leaf.position.y < 0) {
+          resetLeaf(leaf);
+        }
+
+        const dist = player.position.distanceTo(leaf.position);
+        if (dist < 1.2) {
+          endGame(false, "Colpito da una foglia!");
+        }
+      });
+
+      if (finishLine) finishLine.rotation.y += 0.01;
+    }
+
+    function checkWinCondition() {
+      if (player.position.z <= -48 && Math.abs(player.position.x) < 3) {
+        endGame(true, "Hai raggiunto il traguardo in tempo!");
+      }
+    }
+
+    function endGame(victory, message) {
+      isGameOver = true;
+      clearInterval(timerInterval);
+
+      const overlay = document.getElementById('game-over-overlay');
+      const title = document.getElementById('status-title');
+      const desc = document.getElementById('status-desc');
+
+      title.innerText = victory ? "VITTORIA! 🎉" : "MISSIONE FALLITA 💥";
+      title.style.color = victory ? "#2ecc71" : "#e74c3c";
+      desc.innerText = message;
+      overlay.classList.remove('hidden');
+    }
+
+    function resetGame() {
+      isGameOver = false;
+      timeLeft = 30;
+      document.getElementById('timer').innerText = timeLeft;
+      document.getElementById('game-over-overlay').classList.add('hidden');
+
+      if (player) {
+        player.position.set(0, 1, 0);
+        velocityY = 0;
+      }
+
+      leaves.forEach(resetLeaf);
+      startTimer();
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+  </script>
+</body>
+</html>
