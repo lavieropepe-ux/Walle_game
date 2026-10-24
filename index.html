@@ -2,10 +2,15 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Walle08 - Movimento 3D</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
+  <title>Walle08 - Touch Controls</title>
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
     body {
       margin: 0;
       overflow: hidden;
@@ -18,192 +23,87 @@
       height: 100vh;
       display: block;
     }
+    
+    /* Header UI */
     #ui-overlay {
       position: absolute;
-      top: 20px;
-      left: 20px;
+      top: 15px;
+      left: 15px;
       background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(8px);
-      padding: 15px 20px;
+      padding: 10px 15px;
       border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.1);
       pointer-events: none;
       z-index: 10;
     }
     #ui-overlay h1 {
-      margin: 0 0 5px 0;
-      font-size: 20px;
+      margin: 0;
+      font-size: 16px;
       color: #00d2ff;
     }
-    #ui-overlay p {
-      margin: 2px 0;
-      font-size: 13px;
-      color: #cccccc;
-    }
-    #focus-warning {
+
+    /* CONTROLLI TOUCH A SCHERMO */
+    /* D-Pad Direzionale (Sinistra) */
+    #dpad {
       position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(231, 76, 60, 0.9);
-      padding: 10px 20px;
-      border-radius: 20px;
-      font-weight: bold;
+      bottom: 25px;
+      left: 25px;
+      width: 150px;
+      height: 150px;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 5px;
+    }
+    .btn-touch {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 20px;
+      color: white;
+      backdrop-filter: blur(4px);
+      touch-action: none;
+    }
+    .btn-touch:active, .btn-touch.active {
+      background: rgba(0, 210, 255, 0.6);
+      border-color: #00d2ff;
+    }
+    #btn-up { grid-column: 2; grid-row: 1; }
+    #btn-left { grid-column: 1; grid-row: 2; }
+    #btn-down { grid-column: 2; grid-row: 3; }
+    #btn-right { grid-column: 3; grid-row: 2; }
+
+    /* Pulsante Salto (Destra) */
+    #btn-jump {
+      position: absolute;
+      bottom: 40px;
+      right: 30px;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(231, 76, 60, 0.7);
+      border: 2px solid rgba(255, 255, 255, 0.6);
+      color: white;
       font-size: 14px;
-      z-index: 30;
-      display: none;
+      font-weight: bold;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      touch-action: none;
+    }
+    #btn-jump:active, #btn-jump.active {
+      background: rgba(231, 76, 60, 1);
+      transform: scale(0.95);
     }
   </style>
 
   <script type="importmap">
     {
-      "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-      }
-    }
-  </script>
-</head>
-<body>
-
-  <div id="ui-overlay">
-    <h1>Walle08 Interactive Player</h1>
-    <p>🏃 <b>WASD / Frecce:</b> Muovi il personaggio</p>
-    <p>🚀 <b>SPAZIO:</b> Salta</p>
-    <p>🖱️ <b>Mouse:</b> Ruota la vista</p>
-  </div>
-
-  <div id="focus-warning">⚠️ Clicca sullo schermo per abilitare i controlli!</div>
-
-  <div id="canvas-container"></div>
-
-  <script type="module">
-    import * as THREE from 'three';
-    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-    let scene, camera, renderer, controls, player;
-    let keys = {};
-
-    // Fisica e Movimento
-    const moveSpeed = 0.12;
-    let velocityY = 0;
-    const gravity = -0.015;
-    const jumpStrength = 0.35;
-    let isGrounded = true;
-    const groundY = 0;
-
-    init();
-    animate();
-
-    function init() {
-      const container = document.getElementById('canvas-container');
-
-      // 1. Scena
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x1a1a24);
-
-      // 2. Camera
-      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 4, 8);
-
-      // 3. Renderer
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.shadowMap.enabled = true;
-      container.appendChild(renderer.domElement);
-
-      // 4. OrbitControls
-      controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.05;
-      controls.maxPolarAngle = Math.PI / 2 - 0.05;
-
-      // 5. Luci
-      const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
-      scene.add(ambientLight);
-
-      const mainLight = new THREE.DirectionalLight(0xffffff, 2.0);
-      mainLight.position.set(10, 20, 15);
-      mainLight.castShadow = true;
-      scene.add(mainLight);
-
-      // 6. Terreno (Griglia)
-      const grid = new THREE.GridHelper(50, 50, 0x00d2ff, 0x444444);
-      scene.add(grid);
-
-      // 7. Personaggio di Default (Cubo) - visibile fin da subito
-      createFallbackPlayer();
-
-      // 8. Caricamento Modello walle08.glb
-      const loader = new GLTFLoader();
-      loader.load(
-        './walle08.glb',
-        (gltf) => {
-          if (player) scene.remove(player);
-
-          player = gltf.scene;
-
-          const box = new THREE.Box3().setFromObject(player);
-          const size = box.getSize(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z);
-          const scale = 2 / (maxDim || 1);
-          player.scale.setScalar(scale);
-
-          box.setFromObject(player);
-          const center = box.getCenter(new THREE.Vector3());
-          player.position.sub(center);
-          player.position.y = groundY;
-
-          player.traverse((child) => {
-            if (child.isMesh) child.castShadow = true;
-          });
-
-          scene.add(player);
-        },
-        undefined,
-        (err) => console.warn("Modello walle08.glb non trovato, in uso il segnaposto.", err)
-      );
-
-      // Gestione degli eventi di Tastiera
-      window.addEventListener('keydown', (e) => {
-        keys[e.code] = true;
-        keys[e.key.toLowerCase()] = true; // Supporto per tasti minuscoli/maiuscoli
-      });
-
-      window.addEventListener('keyup', (e) => {
-        keys[e.code] = false;
-        keys[e.key.toLowerCase()] = false;
-      });
-
-      // Avviso se la finestra perde il focus
-      window.addEventListener('blur', () => {
-        document.getElementById('focus-warning').style.display = 'block';
-      });
-      window.addEventListener('focus', () => {
-        document.getElementById('focus-warning').style.display = 'none';
-      });
-      container.addEventListener('click', () => {
-        document.getElementById('focus-warning').style.display = 'none';
-      });
-
-      window.addEventListener('resize', onWindowResize);
-    }
-
-    function createFallbackPlayer() {
-      const geo = new THREE.BoxGeometry(1, 1.5, 1);
-      const mat = new THREE.MeshLambertMaterial({ color: 0x00d2ff });
-      player = new THREE.Mesh(geo, mat);
-      player.position.set(0, 0.75, 0);
-      player.castShadow = true;
-      scene.add(player);
-    }
-
-    function updatePlayerMovement() {
-      if (!player) return;
-
-      // Direzioni di movimento rispetto alla telecamera
-      const forward = new THREE.Vector3();
-      camera.getWorldDirection(forward);
-      forward.y = 0;
+      "imports":
