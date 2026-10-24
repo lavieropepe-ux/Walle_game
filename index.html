@@ -32,9 +32,16 @@
       font-size: 14px; pointer-events: none;
     }
   </style>
-  <!-- Three.js e GLTFLoader tramite CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+  <!-- Importmap per caricare Three.js come Modulo ES -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
 </head>
 <body>
 
@@ -49,12 +56,15 @@
   <div id="game-over-overlay" class="hidden">
     <h1 id="status-title">GAME OVER</h1>
     <p id="status-desc">Sei caduto nel vuoto!</p>
-    <button id="restart-btn" onclick="resetGame()">Ricomincia</button>
+    <button id="restart-btn">Ricomincia</button>
   </div>
 
   <div id="canvas-container"></div>
 
-  <script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
     // --- IMPOSTAZIONI GIOCO ---
     let scene, camera, renderer;
     let player, finishLine;
@@ -92,166 +102,12 @@
       container.appendChild(renderer.domElement);
 
       // 3. Luci
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
       scene.add(ambientLight);
 
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
       dirLight.position.set(20, 40, 20);
       dirLight.castShadow = true;
       scene.add(dirLight);
 
-      // 4. Caricamento Modello walle08.glb
-      const loader = new THREE.GLTFLoader();
-      loader.load(
-        './walle08.glb',
-        (gltf) => {
-          player = gltf.scene;
-          player.scale.set(1, 1, 1); // Regola la scala se il tuo modello è troppo grande/piccolo
-          player.position.set(0, 1, 0);
-          player.traverse((child) => { if (child.isMesh) child.castShadow = true; });
-          scene.add(player);
-        },
-        undefined,
-        (error) => {
-          console.warn("Modello walle08.glb non trovato. Uso un cubo temporaneo di placeholder.");
-          // Fallback se il file GLB non è ancora caricato
-          const geo = new THREE.BoxGeometry(1, 1.5, 1);
-          const mat = new THREE.MeshLambertMaterial({ color: 0xff3333 });
-          player = new THREE.Mesh(geo, mat);
-          player.position.set(0, 1, 0);
-          scene.add(player);
-        }
-      );
-
-      // 5. Creazione Mondo (Piattaforme naturali)
-      createWorld();
-
-      // 6. Generazione Foglie Ostacolo
-      createLeaves();
-
-      // 7. Event Listeners
-      window.addEventListener('keydown', (e) => keys[e.code] = true);
-      window.addEventListener('keyup', (e) => keys[e.code] = false);
-      window.addEventListener('resize', onWindowResize);
-
-      // Avvio Timer
-      startTimer();
-    }
-
-    function createWorld() {
-      const matGround = new THREE.MeshLambertMaterial({ color: 0x2e8b57 });
-      
-      // Piattaforma di partenza
-      const startPlatform = new THREE.Mesh(new THREE.BoxGeometry(10, 1, 15), matGround);
-      startPlatform.position.set(0, -0.5, 0);
-      startPlatform.receiveShadow = true;
-      scene.add(startPlatform);
-
-      // Piattaforma intermedia
-      const midPlatform = new THREE.Mesh(new THREE.BoxGeometry(8, 1, 20), matGround);
-      midPlatform.position.set(0, -0.5, -25);
-      midPlatform.receiveShadow = true;
-      scene.add(midPlatform);
-
-      // Piattaforma di arrivo (Traguardo)
-      const finishPlatform = new THREE.Mesh(new THREE.BoxGeometry(10, 1, 10), new THREE.MeshLambertMaterial({ color: 0xf1c40f }));
-      finishPlatform.position.set(0, -0.5, -50);
-      finishPlatform.receiveShadow = true;
-      scene.add(finishPlatform);
-
-      // Indicatore Traguardo
-      const finishGeo = new THREE.TorusGeometry(2, 0.2, 16, 100);
-      const finishMat = new THREE.MeshBasicMaterial({ color: 0xffd700 });
-      finishLine = new THREE.Mesh(finishGeo, finishMat);
-      finishLine.position.set(0, 2, -50);
-      scene.add(finishLine);
-    }
-
-    function createLeaves() {
-      const leafGeo = new THREE.ConeGeometry(0.5, 1, 4);
-      const leafMat = new THREE.MeshLambertMaterial({ color: 0xe67e22 });
-
-      for (let i = 0; i < 25; i++) {
-        const leaf = new THREE.Mesh(leafGeo, leafMat);
-        resetLeaf(leaf);
-        leaf.position.z = -Math.random() * 45; // Distribuite lungo il percorso
-        scene.add(leaf);
-        leaves.push(leaf);
-      }
-    }
-
-    function resetLeaf(leaf) {
-      leaf.position.x = (Math.random() - 0.5) * 12;
-      leaf.position.y = 10 + Math.random() * 10;
-      leaf.rotation.x = Math.random() * Math.PI;
-      leaf.rotation.z = Math.random() * Math.PI;
-    }
-
-    function startTimer() {
-      clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        if (isGameOver) return;
-        timeLeft--;
-        document.getElementById('timer').innerText = timeLeft;
-
-        if (timeLeft <= 0) {
-          endGame(false, "Tempo Scaduto!");
-        }
-      }, 1000);
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-
-      if (!isGameOver && player) {
-        updatePlayer();
-        updateLeaves();
-        checkWinCondition();
-      }
-
-      renderer.render(scene, camera);
-    }
-
-    function updatePlayer() {
-      // Movimento Orizzontale
-      if (keys['KeyW'] || keys['ArrowUp']) player.position.z -= moveSpeed;
-      if (keys['KeyS'] || keys['ArrowDown']) player.position.z += moveSpeed;
-      if (keys['KeyA'] || keys['ArrowLeft']) player.position.x -= moveSpeed;
-      if (keys['KeyD'] || keys['ArrowRight']) player.position.x += moveSpeed;
-
-      // Salto e Gravità
-      if ((keys['Space'] || keys['KeyW']) && isGrounded) {
-        velocityY = jumpStrength;
-        isGrounded = false;
-      }
-
-      player.position.y += velocityY;
-      velocityY += gravity;
-
-      // Semplice controllo collisione con il terreno (Piattaforme)
-      const px = player.position.x;
-      const pz = player.position.z;
-      
-      let onPlatform = false;
-      // Piattaforma 1
-      if (Math.abs(px) < 5 && Math.abs(pz) < 7.5) onPlatform = true;
-      // Piattaforma 2
-      if (Math.abs(px) < 4 && Math.abs(pz - (-25)) < 10) onPlatform = true;
-      // Piattaforma 3 (Traguardo)
-      if (Math.abs(px) < 5 && Math.abs(pz - (-50)) < 5) onPlatform = true;
-
-      if (onPlatform && player.position.y <= 1) {
-        player.position.y = 1;
-        velocityY = 0;
-        isGrounded = true;
-      }
-
-      // Caduta nel Vuoto (Sconfitta)
-      if (player.position.y < -10) {
-        endGame(false, "Sei caduto nel vuoto!");
-      }
-
-      // Inseguimento Telecamera
-      camera.position.x = player.position.x;
-      camera.position.y = player.position.y + 4;
-      camera.
+      // 4
