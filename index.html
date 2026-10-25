@@ -299,7 +299,7 @@
 
         // Caricamento ostacoli modello botte
         loader.load(
-          './botti1_02_1024.glb',
+          './bott1_02_1024.glb',
           (gltf) => {
             const baseBarrel = gltf.scene;
 
@@ -334,8 +334,7 @@
               scene.add(barrelGroup);
             });
           },
-          undefined,
-          (err) => console.warn("Modello botti1_02_1024.glb non trovato.", err)
+          
         );
 
         // Caricamento alberi
