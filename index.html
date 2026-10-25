@@ -1,141 +1,141 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
-  <title>Walle08 - Halloween Nightmare Platformer</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
-      touch-action: manipulation;
+!DOCTYPE html
+html lang=it
+head
+  meta charset=UTF-8 
+  meta name=viewport content=width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0 
+  titleWalle08 - Halloween Nightmare Platformertitle
+  style
+     {
+      box-sizing border-box;
+      user-select none;
+      -webkit-user-select none;
+      touch-action manipulation;
     }
     body {
-      margin: 0;
-      overflow: hidden;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #0d0814;
-      color: #ffffff;
+      margin 0;
+      overflow hidden;
+      font-family 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background #0d0814;
+      color #ffffff;
     }
     #canvas-container {
-      width: 100vw;
-      height: 100vh;
-      display: block;
+      width 100vw;
+      height 100vh;
+      display block;
     }
     
     #ui-overlay {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      background: rgba(20, 10, 30, 0.7);
-      backdrop-filter: blur(8px);
-      padding: 10px 18px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 140, 0, 0.4);
-      pointer-events: none;
-      z-index: 10;
-      font-size: 20px;
-      font-weight: bold;
-      color: #ff9d00;
-      box-shadow: 0 0 15px rgba(255, 120, 0, 0.2);
+      position absolute;
+      top 15px;
+      left 15px;
+      background rgba(20, 10, 30, 0.7);
+      backdrop-filter blur(8px);
+      padding 10px 18px;
+      border-radius 12px;
+      border 1px solid rgba(255, 140, 0, 0.4);
+      pointer-events none;
+      z-index 10;
+      font-size 20px;
+      font-weight bold;
+      color #ff9d00;
+      box-shadow 0 0 15px rgba(255, 120, 0, 0.2);
     }
 
     #game-over-overlay {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(10, 5, 15, 0.9); display: flex; flex-direction: column;
-      justify-content: center; align-items: center; color: white; z-index: 30;
+      position absolute; top 0; left 0; width 100%; height 100%;
+      background rgba(10, 5, 15, 0.9); display flex; flex-direction column;
+      justify-content center; align-items center; color white; z-index 30;
     }
-    #game-over-overlay.hidden { display: none; }
-    #game-over-overlay h1 { font-size: 42px; margin-bottom: 10px; text-shadow: 0 0 10px #ff4500; }
-    #game-over-overlay p { font-size: 18px; margin-bottom: 20px; color: #dcdcdc; }
+    #game-over-overlay.hidden { display none; }
+    #game-over-overlay h1 { font-size 42px; margin-bottom 10px; text-shadow 0 0 10px #ff4500; }
+    #game-over-overlay p { font-size 18px; margin-bottom 20px; color #dcdcdc; }
     #restart-btn {
-      padding: 12px 28px; font-size: 18px; font-weight: bold; color: #fff;
-      background: #d35400; border: none; border-radius: 8px; cursor: pointer;
-      box-shadow: 0 4px 10px rgba(211, 84, 0, 0.5); transition: background 0.2s;
+      padding 12px 28px; font-size 18px; font-weight bold; color #fff;
+      background #d35400; border none; border-radius 8px; cursor pointer;
+      box-shadow 0 4px 10px rgba(211, 84, 0, 0.5); transition background 0.2s;
     }
-    #restart-btn:hover { background: #e67e22; }
+    #restart-btnhover { background #e67e22; }
 
-    /* JOYSTICK ANALOGICO */
+     JOYSTICK ANALOGICO 
     #joystick-container {
-      position: absolute;
-      bottom: 25px;
-      left: 25px;
-      width: 110px;
-      height: 110px;
-      background: rgba(40, 20, 60, 0.4);
-      border: 2px solid rgba(255, 140, 0, 0.6);
-      border-radius: 50%;
-      z-index: 20;
-      touch-action: none;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      backdrop-filter: blur(4px);
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+      position absolute;
+      bottom 25px;
+      left 25px;
+      width 110px;
+      height 110px;
+      background rgba(40, 20, 60, 0.4);
+      border 2px solid rgba(255, 140, 0, 0.6);
+      border-radius 50%;
+      z-index 20;
+      touch-action none;
+      display flex;
+      justify-content center;
+      align-items center;
+      backdrop-filter blur(4px);
+      box-shadow 0 0 15px rgba(0, 0, 0, 0.5);
     }
     #joystick-knob {
-      width: 50px;
-      height: 50px;
-      background: rgba(255, 140, 0, 0.85);
-      border: 2px solid #ffaa00;
-      border-radius: 50%;
-      box-shadow: 0 0 10px rgba(255, 140, 0, 0.6);
-      transition: transform 0.05s ease-out;
-      pointer-events: none;
+      width 50px;
+      height 50px;
+      background rgba(255, 140, 0, 0.85);
+      border 2px solid #ffaa00;
+      border-radius 50%;
+      box-shadow 0 0 10px rgba(255, 140, 0, 0.6);
+      transition transform 0.05s ease-out;
+      pointer-events none;
     }
 
-    /* PULSANTE SALTO */
+     PULSANTE SALTO 
     #btn-jump {
-      position: absolute;
-      bottom: 30px;
-      right: 25px;
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background: rgba(142, 68, 173, 0.85);
-      border: 2px solid rgba(255, 140, 0, 0.7);
-      color: white;
-      font-size: 14px;
-      font-weight: bold;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 20;
-      touch-action: none;
-      box-shadow: 0 4px 15px rgba(142, 68, 173, 0.6);
-      backdrop-filter: blur(4px);
+      position absolute;
+      bottom 30px;
+      right 25px;
+      width 80px;
+      height 80px;
+      border-radius 50%;
+      background rgba(142, 68, 173, 0.85);
+      border 2px solid rgba(255, 140, 0, 0.7);
+      color white;
+      font-size 14px;
+      font-weight bold;
+      display flex;
+      justify-content center;
+      align-items center;
+      z-index 20;
+      touch-action none;
+      box-shadow 0 4px 15px rgba(142, 68, 173, 0.6);
+      backdrop-filter blur(4px);
     }
-    #btn-jump:active, #btn-jump.active {
-      background: rgba(155, 89, 182, 1);
-      transform: scale(0.95);
+    #btn-jumpactive, #btn-jump.active {
+      background rgba(155, 89, 182, 1);
+      transform scale(0.95);
     }
-  </style>
+  style
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-</head>
-<body>
+  script src=httpscdnjs.cloudflare.comajaxlibsthree.jsr128three.min.jsscript
+  script src=httpscdn.jsdelivr.netnpmthree@0.128.0examplesjsloadersGLTFLoader.jsscript
+head
+body
 
-  <div id="ui-overlay">
-    ⏱️ Tempo: <span id="timer">40</span>s
-  </div>
+  div id=ui-overlay
+    ⏱️ Tempo span id=timer40spans
+  div
 
-  <div id="game-over-overlay" class="hidden">
-    <h1 id="status-title">GAME OVER</h1>
-    <p id="status-desc">Sei caduto nel vuoto!</p>
-    <button id="restart-btn" onclick="resetGame()">Ricomincia</button>
-  </div>
+  div id=game-over-overlay class=hidden
+    h1 id=status-titleGAME OVERh1
+    p id=status-descSei caduto nel vuoto!p
+    button id=restart-btn onclick=resetGame()Ricominciabutton
+  div
 
-  <div id="joystick-container">
-    <div id="joystick-knob"></div>
-  </div>
+  div id=joystick-container
+    div id=joystick-knobdiv
+  div
 
-  <div id="btn-jump">SALTO</div>
+  div id=btn-jumpSALTOdiv
 
-  <div id="canvas-container"></div>
+  div id=canvas-containerdiv
 
-  <script>
+  script
     let scene, camera, renderer, player, finishRing;
     let isGameOver = false;
 
@@ -151,42 +151,41 @@
     const jumpStrength = 0.38;
     let isGrounded = true;
     
-    // PERFETTO ALLINEAMENTO TERRENO
-    const groundY = 0.0; // Superficie superiore del terreno erboso
+     PERFETTO ALLINEAMENTO TERRENO
+    const groundY = 0.0;  Superficie superiore del terreno erboso
     const foregroundZ = 2.0;
 
     const playerHalfWidth = 0.5;
     const playerHeight = 1.6;
-    const playerHalfHeight = playerHeight / 2;
+    const playerHalfHeight = playerHeight  2;
 
     const platforms = [
-      { start: -10, end: 15 },
-      { start: 20, end: 40 },
-      { start: 47, end: 70 },
-      { start: 77, end: 110 }
+      { start -10, end 15 },
+      { start 20, end 40 },
+      { start 47, end 70 },
+      { start 77, end 110 }
     ];
 
-    // Dimensioni degli ostacoli (width, height, depth) raddoppiate
     const obstacles = [
-      { x: 5, width: 2.8, height: 2.8, depth: 6, mesh: null },
-      { x: 30, width: 3.2, height: 3.2, depth: 6, mesh: null },
-      { x: 58, width: 3.0, height: 3.0, depth: 6, mesh: null },
-      { x: 88, width: 3.6, height: 3.6, depth: 6, mesh: null }
+      { x 5, width 1.4, height 1.4, depth 3, mesh null },
+      { x 30, width 1.6, height 1.6, depth 3, mesh null },
+      { x 58, width 1.5, height 1.5, depth 3, mesh null },
+      { x 88, width 1.8, height 1.8, depth 3, mesh null }
     ];
 
     const pumpkins = [
-      { minX: 8, maxX: 14, posY: 0.8, speed: 0.08, dir: 1, radius: 0.6, mesh: null },
-      { minX: 22, maxX: 28, posY: 0.8, speed: 0.1, dir: 1, radius: 0.6, mesh: null },
-      { minX: 33, maxX: 39, posY: 2.1, speed: 0.09, dir: -1, radius: 0.6, mesh: null },
-      { minX: 50, maxX: 56, posY: 0.8, speed: 0.11, dir: 1, radius: 0.6, mesh: null },
-      { minX: 61, maxX: 68, posY: 1.9, speed: 0.1, dir: -1, radius: 0.6, mesh: null },
-      { minX: 80, maxX: 86, posY: 0.8, speed: 0.12, dir: 1, radius: 0.6, mesh: null }
+      { minX 8, maxX 14, posY 0.8, speed 0.08, dir 1, radius 0.6, mesh null },
+      { minX 22, maxX 28, posY 0.8, speed 0.1, dir 1, radius 0.6, mesh null },
+      { minX 33, maxX 39, posY 2.1, speed 0.09, dir -1, radius 0.6, mesh null },
+      { minX 50, maxX 56, posY 0.8, speed 0.11, dir 1, radius 0.6, mesh null },
+      { minX 61, maxX 68, posY 1.9, speed 0.1, dir -1, radius 0.6, mesh null },
+      { minX 80, maxX 86, posY 0.8, speed 0.12, dir 1, radius 0.6, mesh null }
     ];
 
     const cameraHeight = 3.5;
     const cameraDistance = 14.0;
 
-    window.onload = () => {
+    window.onload = () = {
       init();
       animate();
     };
@@ -209,27 +208,27 @@
       const moonY = 250;
       const moonRadius = 90;
 
-      const moonGlow = ctx.createRadialGradient(moonX, moonY, moonRadius * 0.5, moonX, moonY, moonRadius * 3);
+      const moonGlow = ctx.createRadialGradient(moonX, moonY, moonRadius  0.5, moonX, moonY, moonRadius  3);
       moonGlow.addColorStop(0, 'rgba(255, 230, 180, 0.8)');
       moonGlow.addColorStop(0.4, 'rgba(255, 140, 0, 0.25)');
       moonGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = moonGlow;
       ctx.beginPath();
-      ctx.arc(moonX, moonY, moonRadius * 3, 0, Math.PI * 2);
+      ctx.arc(moonX, moonY, moonRadius  3, 0, Math.PI  2);
       ctx.fill();
 
       ctx.fillStyle = '#fff4db';
       ctx.beginPath();
-      ctx.arc(moonX, moonY, moonRadius, 0, Math.PI * 2);
+      ctx.arc(moonX, moonY, moonRadius, 0, Math.PI  2);
       ctx.fill();
 
       ctx.fillStyle = '#ffffff';
-      for (let i = 0; i < 150; i++) {
-        const x = Math.random() * canvas.width;
-        const y = Math.random() * (canvas.height * 0.7);
-        const r = Math.random() * 1.5;
+      for (let i = 0; i  150; i++) {
+        const x = Math.random()  canvas.width;
+        const y = Math.random()  (canvas.height  0.7);
+        const r = Math.random()  1.5;
         ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.arc(x, y, r, 0, Math.PI  2);
         ctx.fill();
       }
 
@@ -243,10 +242,10 @@
       scene.background = generateHalloweenSkyTexture();
       scene.fog = new THREE.FogExp2(0x1a0a2a, 0.015);
 
-      camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera = new THREE.PerspectiveCamera(40, window.innerWidth  window.innerHeight, 0.1, 1000);
       camera.position.set(0, cameraHeight, cameraDistance);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.shadowMap.enabled = true;
@@ -267,17 +266,17 @@
       if (typeof THREE.GLTFLoader !== 'undefined') {
         const loader = new THREE.GLTFLoader();
 
-        // CARICAMENTO GIOCATORE
+         CARICAMENTO GIOCATORE
         loader.load(
-          './walle08.glb',
-          (gltf) => {
+          '.walle08.glb',
+          (gltf) = {
             if (player) scene.remove(player);
 
             const loadedModel = gltf.scene;
             const box = new THREE.Box3().setFromObject(loadedModel);
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = playerHeight / (maxDim || 1);
+            const scale = playerHeight  (maxDim  1);
             
             loadedModel.scale.setScalar(scale);
             box.setFromObject(loadedModel);
@@ -288,44 +287,42 @@
             player.add(loadedModel);
             player.position.set(0, groundY + playerHalfHeight, foregroundZ);
 
-            player.traverse((child) => {
+            player.traverse((child) = {
               if (child.isMesh) child.castShadow = true;
             });
 
             scene.add(player);
           },
           undefined,
-          (err) => console.warn("Modello walle08.glb non trovato, in uso il segnaposto.", err)
+          (err) = console.warn(Modello walle08.glb non trovato, in uso il segnaposto., err)
         );
 
-        // CARICAMENTO BOTTI CON ALLINEAMENTO DELLA BASE A TERRA
+         CARICAMENTO OSTACOLI (bott1_02_1024.glb)
         loader.load(
-          './bott1_02_1024.glb',
-          (gltf) => {
+          '.bott1_02_1024.glb',
+          (gltf) = {
             const baseBarrel = gltf.scene;
 
-            obstacles.forEach(obs => {
+            obstacles.forEach(obs = {
               const barrel = baseBarrel.clone();
 
-              // Scala il modello in base all'altezza desiderata
+               Ridimensionamento adattativo basato sull'altezza definita nell'ostacolo
               const box = new THREE.Box3().setFromObject(barrel);
               const size = box.getSize(new THREE.Vector3());
               const maxDim = Math.max(size.x, size.y, size.z);
-              const targetScale = obs.height / (maxDim || 1);
+              const targetScale = obs.height  (maxDim  1);
 
               barrel.scale.setScalar(targetScale);
 
-              // Calcola il BoundingBox dopo lo scaling per trovare il punto più in basso
               const scaledBox = new THREE.Box3().setFromObject(barrel);
-              
-              // Trasla il modello per fare in modo che la base sia esattamente a Y = 0
-              barrel.position.y = -scaledBox.min.y;
+              const center = scaledBox.getCenter(new THREE.Vector3());
+              barrel.position.sub(center);
 
               const barrelGroup = new THREE.Group();
               barrelGroup.add(barrel);
-              barrelGroup.position.set(obs.x, groundY, foregroundZ);
+              barrelGroup.position.set(obs.x, obs.height  2, foregroundZ);
 
-              barrelGroup.traverse((child) => {
+              barrelGroup.traverse((child) = {
                 if (child.isMesh) {
                   child.castShadow = true;
                   child.receiveShadow = true;
@@ -337,33 +334,33 @@
             });
           },
           undefined,
-          (err) => console.warn("Modello bott1_02_1024.glb non trovato.", err)
+          (err) = console.warn(Modello bott1_02_1024.glb non trovato., err)
         );
 
-        // CARICAMENTO ALBERI
+         CARICAMENTO ALBERI
         loader.load(
-          './tree.glb',
-          (gltf) => {
+          '.tree.glb',
+          (gltf) = {
             const baseTree = gltf.scene;
             const box = new THREE.Box3().setFromObject(baseTree);
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z);
-            const baseScale = 3.5 / (maxDim || 1);
+            const baseScale = 3.5  (maxDim  1);
 
-            for (let x = -10; x <= 110; x += 7) {
-              const isOverHole = !platforms.some(p => x >= p.start && x <= p.end);
+            for (let x = -10; x = 110; x += 7) {
+              const isOverHole = !platforms.some(p = x = p.start && x = p.end);
               if (isOverHole) continue;
 
-              if (Math.random() > 0.3) {
+              if (Math.random()  0.3) {
                 const treeClone = baseTree.clone();
-                const zPos = -2.0 - Math.random() * 4;
-                const randomScale = baseScale * (0.8 + Math.random() * 0.4);
+                const zPos = -2.0 - Math.random()  4;
+                const randomScale = baseScale  (0.8 + Math.random()  0.4);
 
                 treeClone.scale.setScalar(randomScale);
-                treeClone.position.set(x + (Math.random() - 0.5) * 2, 0, zPos);
-                treeClone.rotation.y = Math.random() * Math.PI * 2;
+                treeClone.position.set(x + (Math.random() - 0.5)  2, 0, zPos);
+                treeClone.rotation.y = Math.random()  Math.PI  2;
 
-                treeClone.traverse((child) => {
+                treeClone.traverse((child) = {
                   if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
@@ -375,7 +372,7 @@
             }
           },
           undefined,
-          (err) => console.warn("Modello tree.glb non trovato.", err)
+          (err) = console.warn(Modello tree.glb non trovato., err)
         );
       }
 
@@ -387,7 +384,7 @@
     function createFallbackPlayer() {
       player = new THREE.Group();
       const geo = new THREE.BoxGeometry(1.0, playerHeight, 1.0);
-      const mat = new THREE.MeshLambertMaterial({ color: 0xe74c3c });
+      const mat = new THREE.MeshLambertMaterial({ color 0xe74c3c });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = true;
       player.add(mesh);
@@ -396,62 +393,62 @@
     }
 
     function createLevel() {
-      const groundMat = new THREE.MeshLambertMaterial({ color: 0x22112a });
+      const groundMat = new THREE.MeshLambertMaterial({ color 0x22112a });
 
-      // Terreno a Y = -1 con altezza 2 (Superficie superiore = 0.0)
-      platforms.forEach(p => {
+       Terreno a Y = -1 con altezza 2 (Superficie superiore = 0.0)
+      platforms.forEach(p = {
         const length = p.end - p.start;
         const geo = new THREE.BoxGeometry(length, 2, 15);
         const mesh = new THREE.Mesh(geo, groundMat);
-        mesh.position.set(p.start + length / 2, -1, 0);
+        mesh.position.set(p.start + length  2, -1, 0);
         mesh.receiveShadow = true;
         scene.add(mesh);
       });
 
       const ringGeo = new THREE.TorusGeometry(2, 0.3, 16, 100);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+      const ringMat = new THREE.MeshBasicMaterial({ color 0xffaa00 });
       finishRing = new THREE.Mesh(ringGeo, ringMat);
       finishRing.position.set(100, 2.5, foregroundZ);
       scene.add(finishRing);
     }
 
     function createPumpkins() {
-      pumpkins.forEach(p => {
+      pumpkins.forEach(p = {
         const group = new THREE.Group();
 
         const pumpkinGeo = new THREE.SphereGeometry(p.radius, 16, 12);
         pumpkinGeo.scale(1.2, 0.9, 1.0);
         const pumpkinMat = new THREE.MeshStandardMaterial({ 
-          color: 0xe65100, 
-          roughness: 0.6,
-          metalness: 0.1 
+          color 0xe65100, 
+          roughness 0.6,
+          metalness 0.1 
         });
         const pumpkinMesh = new THREE.Mesh(pumpkinGeo, pumpkinMat);
         pumpkinMesh.castShadow = true;
         group.add(pumpkinMesh);
 
         const stemGeo = new THREE.CylinderGeometry(0.05, 0.08, 0.3, 8);
-        const stemMat = new THREE.MeshBasicMaterial({ color: 0x2e7d32 });
+        const stemMat = new THREE.MeshBasicMaterial({ color 0x2e7d32 });
         const stem = new THREE.Mesh(stemGeo, stemMat);
-        stem.position.set(0, p.radius * 0.85, 0);
+        stem.position.set(0, p.radius  0.85, 0);
         stem.rotation.z = -0.2;
         group.add(stem);
 
         const eyeGeo = new THREE.ConeGeometry(0.12, 0.1, 3);
-        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffd600 });
+        const eyeMat = new THREE.MeshBasicMaterial({ color 0xffd600 });
         
         const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-        leftEye.position.set(-0.2, 0.1, p.radius * 0.85);
-        leftEye.rotation.x = Math.PI / 2;
+        leftEye.position.set(-0.2, 0.1, p.radius  0.85);
+        leftEye.rotation.x = Math.PI  2;
         group.add(leftEye);
 
         const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-        rightEye.position.set(0.2, 0.1, p.radius * 0.85);
-        rightEye.rotation.x = Math.PI / 2;
+        rightEye.position.set(0.2, 0.1, p.radius  0.85);
+        rightEye.rotation.x = Math.PI  2;
         group.add(rightEye);
 
         const fireLight = new THREE.PointLight(0xff6d00, 3, 5);
-        fireLight.position.set(0, 0, p.radius * 0.5);
+        fireLight.position.set(0, 0, p.radius  0.5);
         group.add(fireLight);
 
         group.position.set(p.minX, p.posY, foregroundZ);
@@ -461,28 +458,28 @@
     }
 
     function updatePumpkins() {
-      pumpkins.forEach(p => {
+      pumpkins.forEach(p = {
         if (!p.mesh) return;
 
-        p.mesh.position.x += p.speed * p.dir;
+        p.mesh.position.x += p.speed  p.dir;
 
-        if (p.mesh.position.x >= p.maxX) {
+        if (p.mesh.position.x = p.maxX) {
           p.mesh.position.x = p.maxX;
           p.dir = -1;
-        } else if (p.mesh.position.x <= p.minX) {
+        } else if (p.mesh.position.x = p.minX) {
           p.mesh.position.x = p.minX;
           p.dir = 1;
         }
 
-        p.mesh.rotation.y += 0.03 * p.dir;
+        p.mesh.rotation.y += 0.03  p.dir;
 
         if (player && !isGameOver) {
           const dx = player.position.x - p.mesh.position.x;
           const dy = player.position.y - p.mesh.position.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
+          const distance = Math.sqrt(dx  dx + dy  dy);
 
-          if (distance < (p.radius + 0.6)) {
-            endGame(false, "Sei stato colpito da una zucca stregata!");
+          if (distance  (p.radius + 0.6)) {
+            endGame(false, Sei stato colpito da una zucca stregata!);
           }
         }
       });
@@ -490,13 +487,13 @@
 
     function startTimer() {
       clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
+      timerInterval = setInterval(() = {
         if (isGameOver) return;
         timeLeft--;
         document.getElementById('timer').innerText = timeLeft;
 
-        if (timeLeft <= 0) {
-          endGame(false, "Tempo Scaduto!");
+        if (timeLeft = 0) {
+          endGame(false, Tempo Scaduto!);
         }
       }, 1000);
     }
@@ -506,44 +503,44 @@
       const knob = document.getElementById('joystick-knob');
       const maxDistance = 35;
 
-      const handleMove = (clientX, clientY) => {
+      const handleMove = (clientX, clientY) = {
         const rect = container.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
+        const centerX = rect.left + rect.width  2;
         const deltaX = clientX - centerX;
 
         const clampedX = Math.max(-maxDistance, Math.min(maxDistance, deltaX));
         knob.style.transform = `translateX(${clampedX}px)`;
 
-        analogX = clampedX / maxDistance;
+        analogX = clampedX  maxDistance;
       };
 
-      const resetAnalog = () => {
+      const resetAnalog = () = {
         analogX = 0;
         knob.style.transform = `translateX(0px)`;
       };
 
-      container.addEventListener('touchstart', (e) => {
+      container.addEventListener('touchstart', (e) = {
         if (e.cancelable) e.preventDefault();
         handleMove(e.touches[0].clientX, e.touches[0].clientY);
-      }, { passive: false });
+      }, { passive false });
 
-      container.addEventListener('touchmove', (e) => {
+      container.addEventListener('touchmove', (e) = {
         if (e.cancelable) e.preventDefault();
         handleMove(e.touches[0].clientX, e.touches[0].clientY);
-      }, { passive: false });
+      }, { passive false });
 
       container.addEventListener('touchend', resetAnalog);
       container.addEventListener('touchcancel', resetAnalog);
 
       let isMouseDown = false;
-      container.addEventListener('mousedown', (e) => {
+      container.addEventListener('mousedown', (e) = {
         isMouseDown = true;
         handleMove(e.clientX, e.clientY);
       });
-      window.addEventListener('mousemove', (e) => {
+      window.addEventListener('mousemove', (e) = {
         if (isMouseDown) handleMove(e.clientX, e.clientY);
       });
-      window.addEventListener('mouseup', () => {
+      window.addEventListener('mouseup', () = {
         if (isMouseDown) {
           isMouseDown = false;
           resetAnalog();
@@ -551,49 +548,49 @@
       });
 
       const btnJump = document.getElementById('btn-jump');
-      const jumpStart = (e) => {
+      const jumpStart = (e) = {
         if (e.cancelable) e.preventDefault();
         isJumpPressed = true;
         btnJump.classList.add('active');
       };
-      const jumpEnd = (e) => {
+      const jumpEnd = (e) = {
         if (e.cancelable) e.preventDefault();
         isJumpPressed = false;
         btnJump.classList.remove('active');
       };
 
-      btnJump.addEventListener('touchstart', jumpStart, { passive: false });
-      btnJump.addEventListener('touchend', jumpEnd, { passive: false });
+      btnJump.addEventListener('touchstart', jumpStart, { passive false });
+      btnJump.addEventListener('touchend', jumpEnd, { passive false });
       btnJump.addEventListener('mousedown', jumpStart);
       btnJump.addEventListener('mouseup', jumpEnd);
     }
 
     function updatePlayerMovement() {
-      if (!player || isGameOver) return;
+      if (!player  isGameOver) return;
 
-      // 1. Fisica verticale (Salto e Gravità)
+       1. Fisica verticale (Salto e Gravità)
       player.position.y += velocityY;
       velocityY += gravity;
 
       const currentX = player.position.x;
-      const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
+      const onPlatform = platforms.some(p = currentX = p.start && currentX = p.end);
       
-      let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
+      let floorY = onPlatform  (groundY + playerHalfHeight)  -99;
 
-      // Atterraggio sugli ostacoli ingranditi
-      obstacles.forEach(obs => {
+       Atterraggio sugli ostacoli
+      obstacles.forEach(obs = {
         const obsTopCenter = obs.height + playerHalfHeight;
-        const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth + 0.05;
-        const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth - 0.05;
+        const obsMinX = obs.x - (obs.width  2) - playerHalfWidth + 0.05;
+        const obsMaxX = obs.x + (obs.width  2) + playerHalfWidth - 0.05;
 
-        if (player.position.x > obsMinX && player.position.x < obsMaxX) {
-          if (player.position.y >= obsTopCenter - 0.2) {
+        if (player.position.x  obsMinX && player.position.x  obsMaxX) {
+          if (player.position.y = obsTopCenter - 0.2) {
             floorY = Math.max(floorY, obsTopCenter);
           }
         }
       });
 
-      if (player.position.y <= floorY) {
+      if (player.position.y = floorY) {
         player.position.y = floorY;
         velocityY = 0;
         isGrounded = true;
@@ -601,30 +598,30 @@
         isGrounded = false;
       }
 
-      // 2. Movimento Orizzontale gestito dall'Analogico
+       2. Movimento Orizzontale gestito dall'Analogico
       let intendedX = player.position.x;
 
-      if (Math.abs(analogX) > 0.15) {
-        intendedX += analogX * moveSpeed;
+      if (Math.abs(analogX)  0.15) {
+        intendedX += analogX  moveSpeed;
         
-        if (analogX > 0) {
-          player.rotation.y = Math.PI / 2;
-        } else if (analogX < 0) {
-          player.rotation.y = -Math.PI / 2;
+        if (analogX  0) {
+          player.rotation.y = Math.PI  2;
+        } else if (analogX  0) {
+          player.rotation.y = -Math.PI  2;
         }
       }
 
-      // Blocco collisioni laterali sugli ostacoli ingranditi
-      obstacles.forEach(obs => {
-        const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth;
-        const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth;
+       Blocco collisioni laterali
+      obstacles.forEach(obs = {
+        const obsMinX = obs.x - (obs.width  2) - playerHalfWidth;
+        const obsMaxX = obs.x + (obs.width  2) + playerHalfWidth;
         const obsTopCenter = obs.height + playerHalfHeight;
 
-        if (player.position.y < obsTopCenter - 0.1) {
-          if (player.position.x <= obsMinX && intendedX > obsMinX) {
+        if (player.position.y  obsTopCenter - 0.1) {
+          if (player.position.x = obsMinX && intendedX  obsMinX) {
             intendedX = obsMinX;
           }
-          if (player.position.x >= obsMaxX && intendedX < obsMaxX) {
+          if (player.position.x = obsMaxX && intendedX  obsMaxX) {
             intendedX = obsMaxX;
           }
         }
@@ -633,25 +630,25 @@
       player.position.x = intendedX;
       player.position.z = foregroundZ;
 
-      // Comando Salto
+       Comando Salto
       if (isJumpPressed && isGrounded) {
         velocityY = jumpStrength;
         isGrounded = false;
       }
 
-      // Sconfitta per caduta nel vuoto
-      if (player.position.y < -6) {
-        endGame(false, "Sei caduto nell'oscurità!");
+       Sconfitta per caduta nel vuoto
+      if (player.position.y  -6) {
+        endGame(false, Sei caduto nell'oscurità!);
       }
 
-      // Vittoria
-      if (player.position.x >= 98) {
+       Vittoria
+      if (player.position.x = 98) {
         endGame(true, `Vittoria! Hai superato la notte di Halloween con ${timeLeft}s rimasti!`);
       }
 
       if (finishRing) finishRing.rotation.y += 0.02;
 
-      // Inquadratura Telecamera
+       Inquadratura Telecamera
       camera.position.x = player.position.x;
       camera.position.y = cameraHeight;
       camera.position.z = cameraDistance;
@@ -666,8 +663,8 @@
       const title = document.getElementById('status-title');
       const desc = document.getElementById('status-desc');
 
-      title.innerText = victory ? "VITTORIA! 🎃" : "MISSIONE FALLITA 👻";
-      title.style.color = victory ? "#ff9d00" : "#ff3300";
+      title.innerText = victory  VITTORIA! 🎃  MISSIONE FALLITA 👻;
+      title.style.color = victory  #ff9d00  #ff3300;
       desc.innerText = message;
       overlay.classList.remove('hidden');
     }
@@ -696,10 +693,10 @@
     }
 
     function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.aspect = window.innerWidth  window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
-  </script>
-</body>
-</html>
+  script
+body
+html
