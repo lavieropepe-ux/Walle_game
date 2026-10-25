@@ -210,8 +210,9 @@
   <script>
     let scene, camera, renderer, player, playerWalle, playerEvee, finishRing;
     let currentLevel = 1;
-    let checkpointLevel = 1; // Registro del Checkpoint sbloccato
+    let checkpointLevel = 1;
     let isGameOver = false;
+    let isLevel3Starting = false; // Stato di attesa messaggio per Livello 3
 
     let timeLeft = 40;
     let timerInterval;
@@ -819,12 +820,12 @@
       currentLevel = level;
       document.getElementById('level-display').innerText = `Livello ${currentLevel}`;
 
-      // Salva automaticamente il checkpoint per il livello raggiunto
       if (level > checkpointLevel) {
         checkpointLevel = level;
       }
 
       if (level === 1) {
+        isLevel3Starting = false;
         pumpkins.forEach(p => { if (p.mesh) p.mesh.visible = true; });
         bats.forEach(b => { if (b.mesh) b.mesh.visible = false; });
         if (industrialPipesGroup) industrialPipesGroup.visible = false;
@@ -847,8 +848,10 @@
         document.getElementById('btn-jump').style.display = 'flex';
         timeLeft = 40;
         document.getElementById('timer').innerText = timeLeft;
+        startTimer();
 
       } else if (level === 2) {
+        isLevel3Starting = false;
         pumpkins.forEach(p => { if (p.mesh) p.mesh.visible = false; });
         bats.forEach(b => { if (b.mesh) b.mesh.visible = true; });
         if (industrialPipesGroup) industrialPipesGroup.visible = false;
@@ -878,8 +881,13 @@
 
         timeLeft = 40;
         document.getElementById('timer').innerText = timeLeft;
+        startTimer();
 
       } else if (level === 3) {
+        // IMPOSTAZIONE PAUSA INIZIALE LIVELLO 3
+        isLevel3Starting = true;
+        clearInterval(timerInterval); // Mantiene il timer in pausa durante l'intro
+
         pumpkins.forEach(p => { if (p.mesh) p.mesh.visible = false; });
         bats.forEach(b => { if (b.mesh) b.mesh.visible = false; });
         if (industrialPipesGroup) industrialPipesGroup.visible = true;
@@ -905,17 +913,29 @@
         document.getElementById('banner-title').innerText = "LIVELLO 3 - EVEE";
         document.getElementById('banner-sub').innerText = "Futuro Dimenticato: Schiva gli ostacoli industriali!";
         banner.classList.remove('hidden');
-        setTimeout(() => banner.classList.add('hidden'), 3000);
 
         timeLeft = 45;
         document.getElementById('timer').innerText = timeLeft;
+
+        // Telecamera iniziale bloccata all'origine
+        camera.position.x = 0;
+        camera.position.y = 3.2;
+        camera.position.z = cameraDistance;
+        camera.lookAt(2, 3.2, foregroundZ);
+
+        // IL GIOCO PARTE SOLO DOPO LO SVANIMENTO DEL BANNER (3 SECONDI)
+        setTimeout(() => {
+          banner.classList.add('hidden');
+          isLevel3Starting = false;
+          startTimer(); // Avvia il timer di gioco solo adesso
+        }, 3000);
       }
     }
 
     function startTimer() {
       clearInterval(timerInterval);
       timerInterval = setInterval(() => {
-        if (isGameOver) return;
+        if (isGameOver || isLevel3Starting) return;
         timeLeft--;
         document.getElementById('timer').innerText = timeLeft;
 
@@ -1093,6 +1113,9 @@
         camera.lookAt(player.position.x, cameraHeight - 0.5, foregroundZ);
 
       } else if (currentLevel === 3) {
+        // SE IL BANNER È ATTIVO, LO SCENARIO RESTA BLOCCATO
+        if (isLevel3Starting) return;
+
         const autoForwardSpeed = 0.14;
         player.position.x += autoForwardSpeed;
 
@@ -1150,15 +1173,12 @@
       overlay.classList.remove('hidden');
     }
 
-    // Riparte dall'ultimo Checkpoint sbloccato
     function resetGame() {
       isGameOver = false;
       document.getElementById('game-over-overlay').classList.add('hidden');
       switchLevel(checkpointLevel);
-      startTimer();
     }
 
-    // Forza il riavvio dal Livello 1
     function restartFromLvl1() {
       checkpointLevel = 1;
       resetGame();
