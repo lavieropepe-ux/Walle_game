@@ -152,7 +152,7 @@
 
   <div id="level-transition-banner" class="hidden">
     <h2 id="banner-title">LIVELLO 2</h2>
-    <p style="margin: 5px 0 0 0; color: #e0e0e0;">Attento ai Pipistrelli Volanti!</p>
+    <p id="banner-sub" style="margin: 5px 0 0 0; color: #e0e0e0;">Attento ai Pipistrelli Volanti!</p>
   </div>
 
   <div id="game-over-overlay" class="hidden">
@@ -170,7 +170,7 @@
   <div id="canvas-container"></div>
 
   <script>
-    let scene, camera, renderer, player, finishRing;
+    let scene, camera, renderer, player, playerWalle, playerEvee, finishRing;
     let currentLevel = 1;
     let isGameOver = false;
 
@@ -178,6 +178,7 @@
     let timerInterval;
 
     let analogX = 0;
+    let analogY = 0;
     let isJumpPressed = false;
 
     const moveSpeed = 0.16;
@@ -185,7 +186,7 @@
     const gravity = -0.016;
     const jumpStrength = 0.38;
     let isGrounded = true;
-    
+
     // Parametri Terreno
     const groundY = 0.0;
     const foregroundZ = 2.0;
@@ -201,12 +202,12 @@
       { start: 77, end: 110 }
     ];
 
-    // Ostacoli fisici
+    // Ostacoli fisici (Livelli 1 e 2)
     const obstacles = [
-      { x: 5, width: 1.5, height: 1.5 },
-      { x: 30, width: 1.5, height: 1.5 },
-      { x: 58, width: 1.5, height: 1.5 },
-      { x: 88, width: 1.5, height: 1.5 }
+      { x: 5, width: 1.5, height: 1.5, meshes: [] },
+      { x: 30, width: 1.5, height: 1.5, meshes: [] },
+      { x: 58, width: 1.5, height: 1.5, meshes: [] },
+      { x: 88, width: 1.5, height: 1.5, meshes: [] }
     ];
 
     // Nemici Livello 1: Zucche
@@ -224,13 +225,29 @@
       { minX: 7, maxX: 14, baseY: 1.6, speed: 0.09, dir: 1, mesh: null, leftWing: null, rightWing: null, radius: 0.55 },
       { minX: 21, maxX: 29, baseY: 2.2, speed: 0.11, dir: -1, mesh: null, leftWing: null, rightWing: null, radius: 0.55 },
       { minX: 32, maxX: 39, baseY: 1.4, speed: 0.1, dir: 1, mesh: null, leftWing: null, rightWing: null, radius: 0.55 },
-      { minX: 49, maxX: 57, baseY: 2.5, speed: 0.12, dir: -1, mesh: null, leftWing: null, rightWing: null, radius: 0.55 },
-      { minX: 60, maxX: 69, baseY: 1.8, speed: 0.11, dir: 1, mesh: null, leftWing: null, rightWing: null, radius: 0.55 },
-      { minX: 79, maxX: 87, baseY: 2.0, speed: 0.13, dir: -1, mesh: null, leftWing: null, rightWing: null, radius: 0.55 }
+      { minX: 49, maxX: 57, baseY: 2.5, speed: 0.12, dir: -1, radius: 0.55 },
+      { minX: 60, maxX: 69, baseY: 1.8, speed: 0.11, dir: 1, radius: 0.55 },
+      { minX: 79, maxX: 87, baseY: 2.0, speed: 0.13, dir: -1, radius: 0.55 }
     ];
+
+    // Ostacoli Livello 3: Area Industriale "Futuro Dimenticato"
+    const industrialObstacles = [
+      { x: 15, y: 1.0, width: 1.2, height: 3.5, mesh: null },
+      { x: 25, y: 4.5, width: 1.2, height: 3.5, mesh: null },
+      { x: 35, y: 2.2, width: 2.0, height: 1.2, mesh: null },
+      { x: 45, y: 0.8, width: 1.2, height: 3.2, mesh: null },
+      { x: 55, y: 5.0, width: 1.2, height: 3.5, mesh: null },
+      { x: 65, y: 2.8, width: 1.8, height: 1.8, mesh: null },
+      { x: 75, y: 1.2, width: 1.2, height: 3.8, mesh: null },
+      { x: 85, y: 4.8, width: 1.2, height: 3.2, mesh: null }
+    ];
+    let industrialPipesGroup = null;
 
     const cameraHeight = 3.5;
     const cameraDistance = 14.0;
+
+    // Textures degli Ambienti
+    let halloweenBgTexture, industrialBgTexture;
 
     window.onload = () => {
       init();
@@ -282,11 +299,46 @@
       return new THREE.CanvasTexture(canvas);
     }
 
+    function generateIndustrialSkyTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      grad.addColorStop(0, '#02151a');
+      grad.addColorStop(0.4, '#08282e');
+      grad.addColorStop(0.8, '#1a1815');
+      grad.addColorStop(1, '#2e1c0c');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Fumi / Smog industriale
+      for (let i = 0; i < 30; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const r = 50 + Math.random() * 120;
+        const smokeGlow = ctx.createRadialGradient(x, y, 10, x, y, r);
+        smokeGlow.addColorStop(0, 'rgba(0, 255, 200, 0.08)');
+        smokeGlow.addColorStop(0.5, 'rgba(180, 80, 20, 0.05)');
+        smokeGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = smokeGlow;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      return new THREE.CanvasTexture(canvas);
+    }
+
     function init() {
       const container = document.getElementById('canvas-container');
 
       scene = new THREE.Scene();
-      scene.background = generateHalloweenSkyTexture();
+      halloweenBgTexture = generateHalloweenSkyTexture();
+      industrialBgTexture = generateIndustrialSkyTexture();
+
+      scene.background = halloweenBgTexture;
       scene.fog = new THREE.FogExp2(0x1a0a2a, 0.015);
 
       camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -299,9 +351,11 @@
       container.appendChild(renderer.domElement);
 
       const ambientLight = new THREE.AmbientLight(0x8a55a5, 1.2);
+      ambientLight.name = "ambientLight";
       scene.add(ambientLight);
 
       const moonLight = new THREE.DirectionalLight(0xffa500, 1.5);
+      moonLight.name = "moonLight";
       moonLight.position.set(10, 20, 15);
       moonLight.castShadow = true;
       scene.add(moonLight);
@@ -309,6 +363,7 @@
       createLevel();
       createPumpkins();
       createBats();
+      createIndustrialEnvironment();
       createFallbackPlayer();
 
       if (typeof THREE.GLTFLoader !== 'undefined') {
@@ -356,11 +411,11 @@
           (err) => console.warn("Errore caricamento bott1_02_1024.glb:", err)
         );
 
-        // 2. PERSONAGGIO (walle08.glb)
+        // 2. PERSONAGGIO WALLE (walle08.glb)
         loader.load(
           './walle08.glb',
           (gltf) => {
-            if (player) scene.remove(player);
+            if (playerWalle) scene.remove(playerWalle);
 
             const loadedModel = gltf.scene;
             const box = new THREE.Box3().setFromObject(loadedModel);
@@ -373,21 +428,55 @@
             const center = box.getCenter(new THREE.Vector3());
             loadedModel.position.sub(center);
 
-            player = new THREE.Group();
-            player.add(loadedModel);
-            player.position.set(0, groundY + playerHalfHeight, foregroundZ);
+            playerWalle = new THREE.Group();
+            playerWalle.add(loadedModel);
+            playerWalle.position.set(0, groundY + playerHalfHeight, foregroundZ);
 
-            player.traverse((child) => {
+            playerWalle.traverse((child) => {
               if (child.isMesh) child.castShadow = true;
             });
 
-            scene.add(player);
+            scene.add(playerWalle);
+            player = playerWalle;
           },
           undefined,
           (err) => console.warn("Modello walle08.glb non trovato, uso il segnaposto.", err)
         );
 
-        // 3. ALBERI DI SFONDO (tree.glb)
+        // 3. PERSONAGGIO EVEE (evee.glb - Livello 3)
+        loader.load(
+          './evee.glb',
+          (gltf) => {
+            const loadedModel = gltf.scene;
+            const box = new THREE.Box3().setFromObject(loadedModel);
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = 1.4 / (maxDim || 1);
+            
+            loadedModel.scale.setScalar(scale);
+            box.setFromObject(loadedModel);
+            const center = box.getCenter(new THREE.Vector3());
+            loadedModel.position.sub(center);
+
+            playerEvee = new THREE.Group();
+            playerEvee.add(loadedModel);
+            playerEvee.position.set(0, 2.5, foregroundZ);
+
+            playerEvee.traverse((child) => {
+              if (child.isMesh) child.castShadow = true;
+            });
+
+            playerEvee.visible = false;
+            scene.add(playerEvee);
+          },
+          undefined,
+          (err) => {
+            console.warn("Modello evee.glb non trovato. Creo un segnaposto speciale per Evee.", err);
+            createFallbackEvee();
+          }
+        );
+
+        // 4. ALBERI DI SFONDO (tree.glb)
         loader.load(
           './tree.glb',
           (gltf) => {
@@ -424,6 +513,8 @@
           undefined,
           (err) => console.warn("Modello tree.glb non trovato.", err)
         );
+      } else {
+        createFallbackEvee();
       }
 
       setupTouchControls();
@@ -432,14 +523,29 @@
     }
 
     function createFallbackPlayer() {
-      player = new THREE.Group();
+      if (playerWalle) return;
+      playerWalle = new THREE.Group();
       const geo = new THREE.BoxGeometry(1.0, playerHeight, 1.0);
       const mat = new THREE.MeshLambertMaterial({ color: 0xe74c3c });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = true;
-      player.add(mesh);
-      player.position.set(0, groundY + playerHalfHeight, foregroundZ);
-      scene.add(player);
+      playerWalle.add(mesh);
+      playerWalle.position.set(0, groundY + playerHalfHeight, foregroundZ);
+      scene.add(playerWalle);
+      player = playerWalle;
+    }
+
+    function createFallbackEvee() {
+      if (playerEvee) return;
+      playerEvee = new THREE.Group();
+      const geo = new THREE.SphereGeometry(0.7, 16, 16);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, roughness: 0.2, metalness: 0.8 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      playerEvee.add(mesh);
+      playerEvee.position.set(0, 2.5, foregroundZ);
+      playerEvee.visible = false;
+      scene.add(playerEvee);
     }
 
     function createLevel() {
@@ -564,11 +670,11 @@
         rightWingShape.closePath();
         const rightWingGeo = new THREE.ShapeGeometry(rightWingShape);
         const rightWing = new THREE.Mesh(rightWingGeo, batMat);
-        rightWingGroup.add(rightWingGroup);
+        rightWingGroup.add(rightWing);
         batGroup.add(rightWingGroup);
 
         batGroup.position.set(b.minX, b.baseY, foregroundZ);
-        batGroup.visible = false; // Invisibile al livello 1
+        batGroup.visible = false; // Invisibile nei livelli 1 e 3
 
         b.mesh = batGroup;
         b.leftWing = leftWingGroup;
@@ -576,6 +682,45 @@
 
         scene.add(batGroup);
       });
+    }
+
+    function createIndustrialEnvironment() {
+      industrialPipesGroup = new THREE.Group();
+      industrialPipesGroup.visible = false;
+
+      const metalMat = new THREE.MeshStandardMaterial({ color: 0x3a454d, roughness: 0.4, metalness: 0.8 });
+      const rustMat = new THREE.MeshStandardMaterial({ color: 0x6e3820, roughness: 0.9, metalness: 0.2 });
+      const lightCyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+
+      industrialObstacles.forEach(obs => {
+        const obsGroup = new THREE.Group();
+        const geo = new THREE.BoxGeometry(obs.width, obs.height, 3);
+        const mat = Math.random() > 0.5 ? metalMat : rustMat;
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        obsGroup.add(mesh);
+
+        // Luce decorativa futuristica sugli ostacoli
+        const lightStripGeo = new THREE.BoxGeometry(obs.width + 0.1, 0.1, 3.1);
+        const lightStrip = new THREE.Mesh(lightStripGeo, lightCyanMat);
+        lightStrip.position.set(0, (Math.random() - 0.5) * obs.height * 0.8, 0);
+        obsGroup.add(lightStrip);
+
+        obsGroup.position.set(obs.x, obs.y, foregroundZ);
+        obs.mesh = obsGroup;
+        industrialPipesGroup.add(obsGroup);
+      });
+
+      // Strutture metalliche di sfondo / Piloni industriali
+      for (let x = -10; x <= 110; x += 12) {
+        const pillarGeo = new THREE.CylinderGeometry(0.8, 1.2, 12, 8);
+        const pillar = new THREE.Mesh(pillarGeo, rustMat);
+        pillar.position.set(x, 3, -1.5);
+        industrialPipesGroup.add(pillar);
+      }
+
+      scene.add(industrialPipesGroup);
     }
 
     function updateEnemies() {
@@ -610,7 +755,6 @@
         bats.forEach(b => {
           if (!b.mesh) return;
 
-          // Movimento Orizzontale
           b.mesh.position.x += b.speed * b.dir;
           if (b.mesh.position.x >= b.maxX) {
             b.mesh.position.x = b.maxX;
@@ -620,18 +764,13 @@
             b.dir = 1;
           }
 
-          // Movimento Sinusoidale Volante in Alto/Basso
           b.mesh.position.y = b.baseY + Math.sin(time * 2 + b.minX) * 0.45;
-
-          // Orientamento in base alla direzione
           b.mesh.rotation.y = b.dir === 1 ? Math.PI / 6 : -Math.PI / 6;
 
-          // Battito delle ali
           const flapAngle = Math.sin(time * 5) * 0.5;
           if (b.leftWing) b.leftWing.rotation.z = flapAngle;
           if (b.rightWing) b.rightWing.rotation.z = -flapAngle;
 
-          // Collisione col Giocatore
           if (player && !isGameOver) {
             const dx = player.position.x - b.mesh.position.x;
             const dy = player.position.y - b.mesh.position.y;
@@ -650,25 +789,56 @@
       document.getElementById('level-display').innerText = `Livello ${currentLevel}`;
 
       if (level === 2) {
-        // Nascondi Zucche e mostra Pipistrelli
         pumpkins.forEach(p => { if (p.mesh) p.mesh.visible = false; });
         bats.forEach(b => { if (b.mesh) b.mesh.visible = true; });
+        if (industrialPipesGroup) industrialPipesGroup.visible = false;
 
-        // Posiziona il giocatore all'inizio del livello
         if (player) {
           player.position.set(0, groundY + playerHalfHeight, foregroundZ);
           velocityY = 0;
         }
 
-        // Banner Transizione
         const banner = document.getElementById('level-transition-banner');
+        document.getElementById('banner-title').innerText = "LIVELLO 2";
+        document.getElementById('banner-sub').innerText = "Attento ai Pipistrelli Volanti!";
         banner.classList.remove('hidden');
-        setTimeout(() => {
-          banner.classList.add('hidden');
-        }, 2500);
+        setTimeout(() => banner.classList.add('hidden'), 2500);
 
-        // Reset Timer per il livello 2
         timeLeft = 40;
+        document.getElementById('timer').innerText = timeLeft;
+      } else if (level === 3) {
+        // PASSAGGIO AL LIVELLO 3: EVEE E FUTURO DIMENTICATO
+        pumpkins.forEach(p => { if (p.mesh) p.mesh.visible = false; });
+        bats.forEach(b => { if (b.mesh) b.mesh.visible = false; });
+        if (industrialPipesGroup) industrialPipesGroup.visible = true;
+
+        // Cambio Sfondo & Luce di Scena per lo stile "Area Industriale"
+        scene.background = industrialBgTexture;
+        scene.fog = new THREE.FogExp2(0x08282e, 0.02);
+
+        const ambLight = scene.getObjectByName("ambientLight");
+        if (ambLight) ambLight.color.setHex(0x3a6073);
+        const dirLight = scene.getObjectByName("moonLight");
+        if (dirLight) dirLight.color.setHex(0x00e5ff);
+
+        // Nascondi Walle, Mostra Evee
+        if (playerWalle) playerWalle.visible = false;
+        if (playerEvee) {
+          playerEvee.visible = true;
+          playerEvee.position.set(0, 2.5, foregroundZ);
+          player = playerEvee;
+        }
+
+        // Nascondi pulsante di salto (il livello 3 usa il volo/movimento Y continuo)
+        document.getElementById('btn-jump').style.display = 'none';
+
+        const banner = document.getElementById('level-transition-banner');
+        document.getElementById('banner-title').innerText = "LIVELLO 3 - EVEE";
+        document.getElementById('banner-sub').innerText = "Futuro Dimenticato: Schiva gli ostacoli industriali!";
+        banner.classList.remove('hidden');
+        setTimeout(() => banner.classList.add('hidden'), 3000);
+
+        timeLeft = 45;
         document.getElementById('timer').innerText = timeLeft;
       }
     }
@@ -694,17 +864,22 @@
       const handleMove = (clientX, clientY) => {
         const rect = container.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
         const deltaX = clientX - centerX;
+        const deltaY = clientY - centerY;
 
         const clampedX = Math.max(-maxDistance, Math.min(maxDistance, deltaX));
-        knob.style.transform = `translateX(${clampedX}px)`;
+        const clampedY = Math.max(-maxDistance, Math.min(maxDistance, deltaY));
+        knob.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
 
         analogX = clampedX / maxDistance;
+        analogY = clampedY / maxDistance;
       };
 
       const resetAnalog = () => {
         analogX = 0;
-        knob.style.transform = `translateX(0px)`;
+        analogY = 0;
+        knob.style.transform = `translate(0px, 0px)`;
       };
 
       container.addEventListener('touchstart', (e) => {
@@ -735,6 +910,19 @@
         }
       });
 
+      // Supporto Tastiera (Frecce o W-S) per il movimento Y nel Livello 3
+      window.addEventListener('keydown', (e) => {
+        if (currentLevel === 3) {
+          if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') analogY = -1;
+          if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') analogY = 1;
+        }
+      });
+      window.addEventListener('keyup', (e) => {
+        if (currentLevel === 3) {
+          if (['ArrowUp', 'ArrowDown', 'w', 'W', 's', 'S'].includes(e.key)) analogY = 0;
+        }
+      });
+
       const btnJump = document.getElementById('btn-jump');
       const jumpStart = (e) => {
         if (e.cancelable) e.preventDefault();
@@ -756,95 +944,132 @@
     function updatePlayerMovement() {
       if (!player || isGameOver) return;
 
-      // 1. Fisica verticale
-      player.position.y += velocityY;
-      velocityY += gravity;
+      if (currentLevel === 1 || currentLevel === 2) {
+        // LOGICA LIVELLI 1 E 2 (INALTERATA)
+        player.position.y += velocityY;
+        velocityY += gravity;
 
-      const currentX = player.position.x;
-      const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
-      
-      let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
-
-      // Gestione atterraggio sopra gli ostacoli
-      obstacles.forEach(obs => {
-        const obsTopCenter = obs.height + playerHalfHeight;
-        const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth + 0.05;
-        const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth - 0.05;
-
-        if (player.position.x > obsMinX && player.position.x < obsMaxX) {
-          if (player.position.y >= obsTopCenter - 0.2) {
-            floorY = Math.max(floorY, obsTopCenter);
-          }
-        }
-      });
-
-      if (player.position.y <= floorY) {
-        player.position.y = floorY;
-        velocityY = 0;
-        isGrounded = true;
-      } else {
-        isGrounded = false;
-      }
-
-      // 2. Movimento Orizzontale
-      let intendedX = player.position.x;
-
-      if (Math.abs(analogX) > 0.15) {
-        intendedX += analogX * moveSpeed;
+        const currentX = player.position.x;
+        const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
         
-        if (analogX > 0) {
-          player.rotation.y = Math.PI / 2;
-        } else if (analogX < 0) {
-          player.rotation.y = -Math.PI / 2;
-        }
-      }
+        let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
 
-      // Collisioni laterali con gli ostacoli
-      obstacles.forEach(obs => {
-        const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth;
-        const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth;
-        const obsTopCenter = obs.height + playerHalfHeight;
+        obstacles.forEach(obs => {
+          const obsTopCenter = obs.height + playerHalfHeight;
+          const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth + 0.05;
+          const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth - 0.05;
 
-        if (player.position.y < obsTopCenter - 0.1) {
-          if (player.position.x <= obsMinX && intendedX > obsMinX) {
-            intendedX = obsMinX;
+          if (player.position.x > obsMinX && player.position.x < obsMaxX) {
+            if (player.position.y >= obsTopCenter - 0.2) {
+              floorY = Math.max(floorY, obsTopCenter);
+            }
           }
-          if (player.position.x >= obsMaxX && intendedX < obsMaxX) {
-            intendedX = obsMaxX;
+        });
+
+        if (player.position.y <= floorY) {
+          player.position.y = floorY;
+          velocityY = 0;
+          isGrounded = true;
+        } else {
+          isGrounded = false;
+        }
+
+        let intendedX = player.position.x;
+
+        if (Math.abs(analogX) > 0.15) {
+          intendedX += analogX * moveSpeed;
+          
+          if (analogX > 0) {
+            player.rotation.y = Math.PI / 2;
+          } else if (analogX < 0) {
+            player.rotation.y = -Math.PI / 2;
           }
         }
-      });
 
-      player.position.x = intendedX;
-      player.position.z = foregroundZ;
+        obstacles.forEach(obs => {
+          const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth;
+          const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth;
+          const obsTopCenter = obs.height + playerHalfHeight;
 
-      // Comando Salto
-      if (isJumpPressed && isGrounded) {
-        velocityY = jumpStrength;
-        isGrounded = false;
-      }
+          if (player.position.y < obsTopCenter - 0.1) {
+            if (player.position.x <= obsMinX && intendedX > obsMinX) {
+              intendedX = obsMinX;
+            }
+            if (player.position.x >= obsMaxX && intendedX < obsMaxX) {
+              intendedX = obsMaxX;
+            }
+          }
+        });
 
-      // Sconfitta per caduta
-      if (player.position.y < -6) {
-        endGame(false, "Sei caduto nell'oscurità!");
-      }
+        player.position.x = intendedX;
+        player.position.z = foregroundZ;
 
-      // Traguardo e avanzamento di livello
-      if (player.position.x >= 98) {
-        if (currentLevel === 1) {
-          switchLevel(2);
-        } else if (currentLevel === 2) {
-          endGame(true, `VITTORIA FINALE! 🎃👻\nHai completato entrambi i livelli di Halloween in ${timeLeft}s!`);
+        if (isJumpPressed && isGrounded) {
+          velocityY = jumpStrength;
+          isGrounded = false;
         }
+
+        if (player.position.y < -6) {
+          endGame(false, "Sei caduto nell'oscurità!");
+        }
+
+        if (player.position.x >= 98) {
+          if (currentLevel === 1) switchLevel(2);
+          else if (currentLevel === 2) switchLevel(3);
+        }
+
+        if (finishRing) finishRing.rotation.y += 0.02;
+
+        camera.position.x = player.position.x;
+        camera.position.y = cameraHeight;
+        camera.position.z = cameraDistance;
+        camera.lookAt(player.position.x, cameraHeight - 0.5, foregroundZ);
+
+      } else if (currentLevel === 3) {
+        // LOGICA LIVELLO 3: MOVIMENTO ORIZZONTALE AUTOMATICO & CONTROLLO VERTICALE DI EVEE
+        const autoForwardSpeed = 0.14;
+        player.position.x += autoForwardSpeed;
+
+        // Controllo manuale dell'altezza (In alto / In basso via Analogico Y)
+        const verticalFlySpeed = 0.15;
+        if (Math.abs(analogY) > 0.15) {
+          player.position.y -= analogY * verticalFlySpeed; // Inverte Y per coordinata naturale
+        }
+
+        // Limiti altezza volo
+        player.position.y = Math.max(0.6, Math.min(6.5, player.position.y));
+        player.position.z = foregroundZ;
+
+        // Inclinazione decorativa di Evee durante la salita/discesa
+        player.rotation.z = -analogY * 0.3;
+        player.rotation.y = Math.PI / 2;
+
+        // COLLISIONE CON GLI OSTACOLI INDUSTRIALI
+        const eveeRadius = 0.6;
+        industrialObstacles.forEach(obs => {
+          const obsMinX = obs.x - (obs.width / 2) - eveeRadius;
+          const obsMaxX = obs.x + (obs.width / 2) + eveeRadius;
+          const obsMinY = obs.y - (obs.height / 2) - eveeRadius;
+          const obsMaxY = obs.y + (obs.height / 2) + eveeRadius;
+
+          if (player.position.x >= obsMinX && player.position.x <= obsMaxX) {
+            if (player.position.y >= obsMinY && player.position.y <= obsMaxY) {
+              endGame(false, "Impatto Industriale! Evee ha colpito una struttura del Futuro Dimenticato!");
+            }
+          }
+        });
+
+        // Vittoria Finale al completamento del livello 3
+        if (player.position.x >= 98) {
+          endGame(true, `VITTORIA ASSOLUTA! 🤖✨\nHai condotto Walle ed Evee attraverso tutti e 3 i livelli in ${timeLeft}s!`);
+        }
+
+        // Telecamera in inseguimento dinamico orizzontale
+        camera.position.x = player.position.x;
+        camera.position.y = 3.2;
+        camera.position.z = cameraDistance;
+        camera.lookAt(player.position.x + 2, 3.2, foregroundZ);
       }
-
-      if (finishRing) finishRing.rotation.y += 0.02;
-
-      // Telecamera
-      camera.position.x = player.position.x;
-      camera.position.y = cameraHeight;
-      camera.position.z = cameraDistance;
-      camera.lookAt(player.position.x, cameraHeight - 0.5, foregroundZ);
     }
 
     function endGame(victory, message) {
@@ -855,8 +1080,8 @@
       const title = document.getElementById('status-title');
       const desc = document.getElementById('status-desc');
 
-      title.innerText = victory ? "VITTORIA FINALE! 🎃" : "MISSIONE FALLITA 👻";
-      title.style.color = victory ? "#ff9d00" : "#ff3300";
+      title.innerText = victory ? "VITTORIA ASSOLUTA! 🏆" : "MISSIONE FALLITA 👻";
+      title.style.color = victory ? "#00e5ff" : "#ff3300";
       desc.innerText = message;
       overlay.classList.remove('hidden');
     }
@@ -866,13 +1091,25 @@
       currentLevel = 1;
       document.getElementById('level-display').innerText = "Livello 1";
       document.getElementById('game-over-overlay').classList.add('hidden');
+      document.getElementById('btn-jump').style.display = 'flex';
 
-      // Mostra di nuovo le Zucche e nascondi i Pipistrelli
+      // Ripristino grafiche e luci del livello 1
+      scene.background = halloweenBgTexture;
+      scene.fog = new THREE.FogExp2(0x1a0a2a, 0.015);
+      const ambLight = scene.getObjectByName("ambientLight");
+      if (ambLight) ambLight.color.setHex(0x8a55a5);
+      const dirLight = scene.getObjectByName("moonLight");
+      if (dirLight) dirLight.color.setHex(0xffa500);
+
       pumpkins.forEach(p => { if (p.mesh) p.mesh.visible = true; });
       bats.forEach(b => { if (b.mesh) b.mesh.visible = false; });
+      if (industrialPipesGroup) industrialPipesGroup.visible = false;
 
-      if (player) {
-        player.position.set(0, groundY + playerHalfHeight, foregroundZ);
+      if (playerEvee) playerEvee.visible = false;
+      if (playerWalle) {
+        playerWalle.visible = true;
+        playerWalle.position.set(0, groundY + playerHalfHeight, foregroundZ);
+        player = playerWalle;
         velocityY = 0;
       }
 
