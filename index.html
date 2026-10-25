@@ -166,7 +166,7 @@
       { start: 77, end: 110 }
     ];
 
-    // Dimensioni degli ostacoli (width, height, depth) RADDOPPIATE per adattarsi al modello ingrandito
+    // Dimensioni degli ostacoli e altezze di collisione
     const obstacles = [
       { x: 5, width: 2.8, height: 2.8, depth: 6, mesh: null },
       { x: 30, width: 3.2, height: 3.2, depth: 6, mesh: null },
@@ -298,7 +298,7 @@
           (err) => console.warn("Modello walle08.glb non trovato, in uso il segnaposto.", err)
         );
 
-        // CARICAMENTO BOTTI CON DIMENSIONI RADDOPPIATE
+        // CARICAMENTO BOTTI CON POSIZIONAMENTO CORRETTO A TERRA (Y = 0)
         loader.load(
           './bott1_02_1024.glb',
           (gltf) => {
@@ -307,7 +307,7 @@
             obstacles.forEach(obs => {
               const barrel = baseBarrel.clone();
 
-              // Calcolo del fattore di scala RADDOPPIATO (obs.height * 2.0)
+              // Calcolo del fattore di scala
               const box = new THREE.Box3().setFromObject(barrel);
               const size = box.getSize(new THREE.Vector3());
               const maxDim = Math.max(size.x, size.y, size.z);
@@ -315,13 +315,13 @@
 
               barrel.scale.setScalar(targetScale);
 
+              // Allineamento della base della botte a Y = 0 (per impedire che fluttui)
               const scaledBox = new THREE.Box3().setFromObject(barrel);
-              const center = scaledBox.getCenter(new THREE.Vector3());
-              barrel.position.sub(center);
+              barrel.position.y -= scaledBox.min.y;
 
               const barrelGroup = new THREE.Group();
               barrelGroup.add(barrel);
-              barrelGroup.position.set(obs.x, obs.height / 2, foregroundZ);
+              barrelGroup.position.set(obs.x, groundY, foregroundZ);
 
               barrelGroup.traverse((child) => {
                 if (child.isMesh) {
@@ -578,7 +578,7 @@
       
       let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
 
-      // Atterraggio sugli ostacoli ingranditi
+      // Atterraggio sopra gli ostacoli
       obstacles.forEach(obs => {
         const obsTopCenter = obs.height + playerHalfHeight;
         const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth + 0.05;
@@ -612,7 +612,7 @@
         }
       }
 
-      // Blocco collisioni laterali sugli ostacoli ingranditi
+      // Blocco collisioni laterali
       obstacles.forEach(obs => {
         const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth;
         const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth;
