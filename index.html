@@ -1,8 +1,3 @@
-Ci scusiamo per l'incomprensione. Il motivo per cui l'integrazione del modello `bott1_02_1024.glb` non si rifletteva nell'interfaccia interattiva dell'app è che la sandbox web richiede la libreria Three.js e i relativi loader per poter caricare un file `.glb` locale in modo asincrono.
-
-Ecco la versione dell'applicazione aggiornata: l'ingombro degli ostacoli è calibrato direttamente sulle dimensioni reali del file `bott1_02_1024.glb` tramite il calcolo del suo **Bounding Box (Box3)**, mantenendo le proporzioni corrette e allineando perfettamente la fisica di collisione (sopra e lateralmente).
-
-```html
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -156,7 +151,7 @@ Ecco la versione dell'applicazione aggiornata: l'ingombro degli ostacoli è cali
     const jumpStrength = 0.38;
     let isGrounded = true;
     
-    // ALLINEAMENTO TERRENO
+    // Parametri Terreno
     const groundY = 0.0;
     const foregroundZ = 2.0;
 
@@ -171,199 +166,12 @@ Ecco la versione dell'applicazione aggiornata: l'ingombro degli ostacoli è cali
       { start: 77, end: 110 }
     ];
 
-    // Posizioni X degli ostacoli (altezza e larghezza dinamiche in base al GLB)
+    // Array degli ostacoli: larghezza e altezza saranno ricalcolate automaticamente dal file GLB
     const obstacles = [
-      { x: 5, width: 1.4, height: 1.5, depth: 1.4, meshes: [] },
-      { x: 30, width: 1.4, height: 1.5, depth: 1.4, meshes: [] },
-      { x: 58, width: 1.4, height: 1.5, depth: 1.4, meshes: [] },
-      { x: 88, width: 1.4, height: 1.5, depth: 1.4, meshes: [] }
-    ];
-
-    const pumpkins = [
-      { minX: 8, maxX: 14, posY: 0.8, speed: 0.08, dir: 1, radius: 0.6, mesh: null },
-      { minX: 22, maxX: 28, posY: 0.8, speed: 0.1, dir: 1, radius: 0.6, mesh: null },
-      Hai ragione, ti chiedo scusa: nei passaggi precedenti abbiamo aggiornato la logica di caricamento `GLTFLoader`, ma la funzione `createLevel()` stava ancora creando manualmente le mesh geometriche dei blocchi con `THREE.BoxGeometry`, sovrapponendosi o sostituendo visivamente il modello GLB.
-
-Ecco il codice **completamente corretto e pulito**:
-
-1. **Rimossa del tutto la creazione dei parallelepipedi bianchi/grigi** da `createLevel()`.
-2. **Caricamento diretto del modello `bott1_02_1024.glb`**: per ciascuna posizione presente nell'array `obstacles`, viene inserito direttamente il file 3D.
-3. **Scala e centraggio reale**: il bounding box del modello GLB viene calcolato per poggiare l'ostacolo esattamente sul terreno e aggiornare al volo i dati per le collisioni di salto e blocco laterale.
-
-```html
-<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
-  <title>Walle08 - Halloween Nightmare Platformer</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
-      touch-action: manipulation;
-    }
-    body {
-      margin: 0;
-      overflow: hidden;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #0d0814;
-      color: #ffffff;
-    }
-    #canvas-container {
-      width: 100vw;
-      height: 100vh;
-      display: block;
-    }
-    
-    #ui-overlay {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      background: rgba(20, 10, 30, 0.7);
-      backdrop-filter: blur(8px);
-      padding: 10px 18px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 140, 0, 0.4);
-      pointer-events: none;
-      z-index: 10;
-      font-size: 20px;
-      font-weight: bold;
-      color: #ff9d00;
-      box-shadow: 0 0 15px rgba(255, 120, 0, 0.2);
-    }
-
-    #game-over-overlay {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(10, 5, 15, 0.9); display: flex; flex-direction: column;
-      justify-content: center; align-items: center; color: white; z-index: 30;
-    }
-    #game-over-overlay.hidden { display: none; }
-    #game-over-overlay h1 { font-size: 42px; margin-bottom: 10px; text-shadow: 0 0 10px #ff4500; }
-    #game-over-overlay p { font-size: 18px; margin-bottom: 20px; color: #dcdcdc; }
-    #restart-btn {
-      padding: 12px 28px; font-size: 18px; font-weight: bold; color: #fff;
-      background: #d35400; border: none; border-radius: 8px; cursor: pointer;
-      box-shadow: 0 4px 10px rgba(211, 84, 0, 0.5); transition: background 0.2s;
-    }
-    #restart-btn:hover { background: #e67e22; }
-
-    /* JOYSTICK ANALOGICO */
-    #joystick-container {
-      position: absolute;
-      bottom: 25px;
-      left: 25px;
-      width: 110px;
-      height: 110px;
-      background: rgba(40, 20, 60, 0.4);
-      border: 2px solid rgba(255, 140, 0, 0.6);
-      border-radius: 50%;
-      z-index: 20;
-      touch-action: none;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      backdrop-filter: blur(4px);
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
-    }
-    #joystick-knob {
-      width: 50px;
-      height: 50px;
-      background: rgba(255, 140, 0, 0.85);
-      border: 2px solid #ffaa00;
-      border-radius: 50%;
-      box-shadow: 0 0 10px rgba(255, 140, 0, 0.6);
-      transition: transform 0.05s ease-out;
-      pointer-events: none;
-    }
-
-    /* PULSANTE SALTO */
-    #btn-jump {
-      position: absolute;
-      bottom: 30px;
-      right: 25px;
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background: rgba(142, 68, 173, 0.85);
-      border: 2px solid rgba(255, 140, 0, 0.7);
-      color: white;
-      font-size: 14px;
-      font-weight: bold;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 20;
-      touch-action: none;
-      box-shadow: 0 4px 15px rgba(142, 68, 173, 0.6);
-      backdrop-filter: blur(4px);
-    }
-    #btn-jump:active, #btn-jump.active {
-      background: rgba(155, 89, 182, 1);
-      transform: scale(0.95);
-    }
-  </style>
-
-  <script src="[https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js](https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js)"></script>
-  <script src="[https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js](https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js)"></script>
-</head>
-<body>
-
-  <div id="ui-overlay">
-    ⏱️ Tempo: <span id="timer">40</span>s
-  </div>
-
-  <div id="game-over-overlay" class="hidden">
-    <h1 id="status-title">GAME OVER</h1>
-    <p id="status-desc">Sei caduto nel vuoto!</p>
-    <button id="restart-btn" onclick="resetGame()">Ricomincia</button>
-  </div>
-
-  <div id="joystick-container">
-    <div id="joystick-knob"></div>
-  </div>
-
-  <div id="btn-jump">SALTO</div>
-
-  <div id="canvas-container"></div>
-
-  <script>
-    let scene, camera, renderer, player, finishRing;
-    let isGameOver = false;
-
-    let timeLeft = 40;
-    let timerInterval;
-
-    let analogX = 0;
-    let isJumpPressed = false;
-
-    const moveSpeed = 0.16;
-    let velocityY = 0;
-    const gravity = -0.016;
-    const jumpStrength = 0.38;
-    let isGrounded = true;
-    
-    const groundY = 0.0;
-    const foregroundZ = 2.0;
-
-    const playerHalfWidth = 0.5;
-    const playerHeight = 1.6;
-    const playerHalfHeight = playerHeight / 2;
-
-    const platforms = [
-      { start: -10, end: 15 },
-      { start: 20, end: 40 },
-      { start: 47, end: 70 },
-      { start: 77, end: 110 }
-    ];
-
-    // Posizioni degli ostacoli (i valori di larghezza/altezza si aggiornano automaticamente col GLB)
-    const obstacles = [
-      { x: 5, width: 1.4, height: 1.4, depth: 3 },
-      { x: 30, width: 1.6, height: 1.6, depth: 3 },
-      { x: 58, width: 1.5, height: 1.5, depth: 3 },
-      { x: 88, width: 1.8, height: 1.8, depth: 3 }
+      { x: 5, width: 1.5, height: 1.5 },
+      { x: 30, width: 1.5, height: 1.5 },
+      { x: 58, width: 1.5, height: 1.5 },
+      { x: 88, width: 1.5, height: 1.5 }
     ];
 
     const pumpkins = [
@@ -459,32 +267,31 @@ Ecco il codice **completamente corretto e pulito**:
       if (typeof THREE.GLTFLoader !== 'undefined') {
         const loader = new THREE.GLTFLoader();
 
-        // 1. CARICAMENTO ESCLUSIVO DEGLI OSTACOLI DA FILE GLB
+        // 1. CARICAMENTO OSTACOLO GLB (bott1_02_1024.glb)
         loader.load(
           './bott1_02_1024.glb',
           (gltf) => {
             const rawModel = gltf.scene;
 
-            // Calcolo ingombro reale e centraggio del pivot
+            // Bounding Box per ricavare la dimensione reale del file GLB
             const rawBox = new THREE.Box3().setFromObject(rawModel);
             const rawSize = rawBox.getSize(new THREE.Vector3());
             const rawCenter = rawBox.getCenter(new THREE.Vector3());
 
-            // Target di altezza desiderata mantenendo la proporzione esatta
-            const targetHeight = 1.5;
+            // Scala desiderata per l'ostacolo
+            const targetHeight = 1.6;
             const scaleFactor = targetHeight / (rawSize.y || 1);
 
             const realWidth = rawSize.x * scaleFactor;
             const realHeight = rawSize.y * scaleFactor;
-            const realDepth = rawSize.z * scaleFactor;
 
-            // Creazione gruppo di comodo per avere l'origine esattamente alla base (Y=0)
+            // Creazione contenitore centrato alla base Y = 0
             const centeredWrapper = new THREE.Group();
             rawModel.position.set(-rawCenter.x, -rawBox.min.y, -rawCenter.z);
             centeredWrapper.add(rawModel);
             centeredWrapper.scale.setScalar(scaleFactor);
 
-            // Genera ogni ostacolo nel livello usando il modello GLB
+            // Generazione degli ostacoli nel percorso
             obstacles.forEach(obs => {
               const obsInstance = centeredWrapper.clone();
               obsInstance.position.set(obs.x, 0, foregroundZ);
@@ -498,17 +305,16 @@ Ecco il codice **completamente corretto e pulito**:
 
               scene.add(obsInstance);
 
-              // Aggiorna la fisica delle collisioni in base all'ingombro del GLB
+              // Aggiornamento ingombri fisici reali
               obs.width = realWidth;
               obs.height = realHeight;
-              obs.depth = realDepth;
             });
           },
           undefined,
-          (err) => console.warn("Errore durante il caricamento di bott1_02_1024.glb", err)
+          (err) => console.warn("Errore caricamento bott1_02_1024.glb:", err)
         );
 
-        // 2. GIOCATORE WALLE08
+        // 2. PERSONAGGIO (walle08.glb)
         loader.load(
           './walle08.glb',
           (gltf) => {
@@ -536,10 +342,10 @@ Ecco il codice **completamente corretto e pulito**:
             scene.add(player);
           },
           undefined,
-          (err) => console.warn("Modello walle08.glb non trovato, uso segnaposto.", err)
+          (err) => console.warn("Modello walle08.glb non trovato, uso il segnaposto.", err)
         );
 
-        // 3. ALBERI DI SFONDO
+        // 3. ALBERI DI SFONDO (tree.glb)
         loader.load(
           './tree.glb',
           (gltf) => {
@@ -597,7 +403,7 @@ Ecco il codice **completamente corretto e pulito**:
     function createLevel() {
       const groundMat = new THREE.MeshLambertMaterial({ color: 0x22112a });
 
-      // Terreni di gioco (nessun parallelepipedo per gli ostacoli qui dentro!)
+      // Terreni di gioco
       platforms.forEach(p => {
         const length = p.end - p.start;
         const geo = new THREE.BoxGeometry(length, 2, 15);
@@ -607,6 +413,7 @@ Ecco il codice **completamente corretto e pulito**:
         scene.add(mesh);
       });
 
+      // Anello finale
       const ringGeo = new THREE.TorusGeometry(2, 0.3, 16, 100);
       const ringMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
       finishRing = new THREE.Mesh(ringGeo, ringMat);
@@ -770,7 +577,7 @@ Ecco il codice **completamente corretto e pulito**:
     function updatePlayerMovement() {
       if (!player || isGameOver) return;
 
-      // 1. Fisica verticale (Salto e Gravità)
+      // 1. Fisica verticale
       player.position.y += velocityY;
       velocityY += gravity;
 
@@ -779,7 +586,7 @@ Ecco il codice **completamente corretto e pulito**:
       
       let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
 
-      // Atterraggio sopra l'ostacolo GLB
+      // Gestione atterraggio sopra l'ostacolo GLB
       obstacles.forEach(obs => {
         const obsTopCenter = obs.height + playerHalfHeight;
         const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth + 0.05;
@@ -838,19 +645,19 @@ Ecco il codice **completamente corretto e pulito**:
         isGrounded = false;
       }
 
-      // Caduta nel vuoto
+      // Sconfitta per caduta
       if (player.position.y < -6) {
         endGame(false, "Sei caduto nell'oscurità!");
       }
 
-      // Vittoria
+      // Traguardo
       if (player.position.x >= 98) {
         endGame(true, `Vittoria! Hai superato la notte di Halloween con ${timeLeft}s rimasti!`);
       }
 
       if (finishRing) finishRing.rotation.y += 0.02;
 
-      // Telecamera
+      // Aggiornamento Telecamera
       camera.position.x = player.position.x;
       camera.position.y = cameraHeight;
       camera.position.z = cameraDistance;
@@ -902,5 +709,3 @@ Ecco il codice **completamente corretto e pulito**:
   </script>
 </body>
 </html>
-
-```
