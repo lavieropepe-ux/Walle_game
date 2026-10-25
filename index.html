@@ -331,7 +331,7 @@
       const canvas = document.createElement('canvas');
       canvas.width = 1024; canvas.height = 1024;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#060612'; ctx.fillRect(0, 0, canvas.width, canvas.height); // Leggermente illuminato
+      ctx.fillStyle = '#060612'; ctx.fillRect(0, 0, canvas.width, canvas.height);
       return new THREE.CanvasTexture(canvas);
     }
 
@@ -437,7 +437,7 @@
           (err) => console.warn("Modello walle08.glb non trovato, uso il segnaposto.", err)
         );
 
-        // 3. PERSONAGGIO EVEE (evee.glb - Livelli 3 e 4, e intro a sinistra)
+        // 3. PERSONAGGIO EVEE (evee.glb - Livelli 3 e 4, e intro a sinistra del muro)
         loader.load(
           './evee.glb',
           (gltf) => {
@@ -460,11 +460,12 @@
             playerEvee.visible = false;
             scene.add(playerEvee);
 
-            // Evee per Intro Livello 1 (a sinistra del muro)
+            // Evee per Intro Livello 1 (posizionata a sinistra del muro, statica e ben visibile)
             if (introGroup) {
               const introEvee = loadedModel.clone();
               introEvee.scale.setScalar(scale);
-              introEvee.position.set(-4.5, groundY, foregroundZ);
+              introEvee.position.set(introWallX - 1.5, groundY, foregroundZ);
+              introEvee.rotation.y = Math.PI / 4; // Leggermente rivolta verso lo spettatore
               introGroup.add(introEvee);
             }
 
@@ -550,7 +551,7 @@
       }
       if (introGroup && introGroup.children.length === 1) {
         const fallbackEveeIntro = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 16), new THREE.MeshStandardMaterial({ color: 0x00e5ff }));
-        fallbackEveeIntro.position.set(-4.5, groundY + 0.7, foregroundZ);
+        fallbackEveeIntro.position.set(introWallX - 1.5, groundY + 0.7, foregroundZ);
         introGroup.add(fallbackEveeIntro);
       }
       if (!darkWorldEvee) {
@@ -563,11 +564,11 @@
       }
     }
 
-    // Creazione del Muro e Evee a sinistra all'inizio del Livello 1
+    // Creazione del Muro e posizionamento di Evee a sinistra del muro all'inizio del Livello 1
     function createIntroDecorations() {
       introGroup = new THREE.Group();
 
-      // Muro divisorio posizionato a sinistra (a X = -2.5)
+      // Muro divisorio solido a sinistra di Walle08
       const wallGeo = new THREE.BoxGeometry(1.0, 3.5, 3);
       const wallMat = new THREE.MeshStandardMaterial({ color: 0x5c5666, roughness: 0.7 });
       const wall = new THREE.Mesh(wallGeo, wallMat);
@@ -702,12 +703,10 @@
       scene.add(industrialPipesGroup);
     }
 
-    // Creazione del Quarto Scenario Open World (Mondo Buio leggermente illuminato, 3 Luci, Cuore)
     function createDarkWorldEnvironment() {
       darkWorldGroup = new THREE.Group();
       darkWorldGroup.visible = false;
 
-      // Coordinate delle 3 luci nascoste disparse nell'open world
       const lightPositions = [
         { x: -5, y: 0.2 },
         { x: 10, y: 0.2 },
@@ -728,7 +727,6 @@
         return { mesh: mesh, pointLight: pLight, activated: false, x: pos.x, y: pos.y };
       });
 
-      // Forma del Cuore sullo sfondo (visibile alla vittoria)
       const heartShape = new THREE.Shape();
       heartShape.fromPoints([
         new THREE.Vector2(0, 0.5),
@@ -879,13 +877,12 @@
         }, 3000);
 
       } else if (level === 4) {
-        // SETUP LIVELLO 4: OPEN WORLD (Mondo buio lievemente illuminato, sterzata libera)
         isLevel3Starting = false;
         scene.background = darkBgTexture;
-        scene.fog = new THREE.FogExp2(0x0a0a1a, 0.025); // Nebbia scura ma non totalmente nera
+        scene.fog = new THREE.FogExp2(0x0a0a1a, 0.025);
 
         const ambLight = scene.getObjectByName("ambientLight");
-        if (ambLight) ambLight.color.setHex(0x444466); // Luce ambiente piacevole e illuminata
+        if (ambLight) ambLight.color.setHex(0x444466);
         const dirLight = scene.getObjectByName("moonLight");
         if (dirLight) dirLight.color.setHex(0x555588);
 
@@ -915,7 +912,7 @@
         banner.classList.remove('hidden');
         setTimeout(() => banner.classList.add('hidden'), 3000);
 
-        timeLeft = 90; // Tempo generoso per esplorare l'open world
+        timeLeft = 90;
         document.getElementById('timer').innerText = timeLeft;
         startTimer();
       }
@@ -1060,7 +1057,7 @@
 
         // COLLISIONE CON IL MURO A SINISTRA NEL LIVELLO 1
         if (currentLevel === 1) {
-          const wallLeftLimit = introWallX + 0.6 + playerHalfWidth;
+          const wallLeftLimit = introWallX + 0.5 + playerHalfWidth;
           if (intendedX < wallLeftLimit) {
             intendedX = wallLeftLimit;
           }
@@ -1140,7 +1137,6 @@
         camera.lookAt(player.position.x + 2, 3.2, foregroundZ);
 
       } else if (currentLevel === 4) {
-        // LIVELLO 4: OPEN WORLD CON STERZATA LIBERA A 360 GRADI E TERZA PERSONA DINAMICA
         player.position.y += velocityY;
         velocityY += gravity;
 
@@ -1156,14 +1152,11 @@
           isGrounded = false;
         }
 
-        // Sterzata e movimento libero in tutte le direzioni (Open World)
         let moveX = 0;
         let moveZ = 0;
         if (Math.abs(analogX) > 0.15 || Math.abs(analogY) > 0.15) {
           moveX = analogX * moveSpeed;
-          moveZ = analogY * moveSpeed * 0.5; // Movimento in profondità limitato per restare sul piano
-
-          // Orientamento (sterzata) basato sulla direzione del movimento
+          moveZ = analogY * moveSpeed * 0.5;
           player.rotation.y = Math.atan2(moveX, moveZ) + Math.PI / 2;
         }
 
@@ -1175,7 +1168,6 @@
           isGrounded = false;
         }
 
-        // Controllo attivazione delle 3 luci nascoste
         hiddenLights.forEach(l => {
           if (!l.activated) {
             const dx = player.position.x - l.x;
@@ -1193,7 +1185,6 @@
           }
         });
 
-        // Controlla se Walle tocca Evee per la vittoria finale
         if (lightsActivatedCount >= 3 && darkWorldEvee && darkWorldEvee.visible) {
           const dx = player.position.x - darkWorldEvee.position.x;
           const dy = player.position.y - (groundY + playerHalfHeight);
@@ -1207,7 +1198,6 @@
           }
         }
 
-        // Telecamera in terza persona dinamica da dietro (segue i movimenti fluidi di Walle)
         const targetCamX = player.position.x - 4.0;
         const targetCamY = player.position.y + 2.2;
         const targetCamZ = player.position.z + 5.0;
