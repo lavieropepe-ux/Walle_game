@@ -266,7 +266,7 @@
       if (typeof THREE.GLTFLoader !== 'undefined') {
         const loader = new THREE.GLTFLoader();
 
-        // CARICAMENTO GIOCATORE (WALLE08)
+        // Caricamento del giocatore
         loader.load(
           './walle08.glb',
           (gltf) => {
@@ -297,7 +297,7 @@
           (err) => console.warn("Modello walle08.glb non trovato, in uso il segnaposto.", err)
         );
 
-        // CARICAMENTO OSTACOLI (BOTTI)
+        // Caricamento ostacoli modello botte
         loader.load(
           './botti1_02_1024.glb',
           (gltf) => {
@@ -306,7 +306,7 @@
             obstacles.forEach(obs => {
               const barrel = baseBarrel.clone();
 
-              // Calcolo scala per adattare la botte alle dimensioni specificate
+              // Normalizzazione e scalatura automatica per far coincidere l'altezza dell'ostacolo
               const box = new THREE.Box3().setFromObject(barrel);
               const size = box.getSize(new THREE.Vector3());
               const maxDim = Math.max(size.x, size.y, size.z);
@@ -314,7 +314,7 @@
 
               barrel.scale.setScalar(targetScale);
 
-              // Centratura del modello rispetto alla sua origine fisica
+              // Calcolo del centro dopo la scalatura
               const scaledBox = new THREE.Box3().setFromObject(barrel);
               const center = scaledBox.getCenter(new THREE.Vector3());
               barrel.position.sub(center);
@@ -338,7 +338,7 @@
           (err) => console.warn("Modello botti1_02_1024.glb non trovato.", err)
         );
 
-        // CARICAMENTO ALBERI
+        // Caricamento alberi
         loader.load(
           './tree.glb',
           (gltf) => {
