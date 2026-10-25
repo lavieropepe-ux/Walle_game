@@ -166,12 +166,11 @@
       { start: 77, end: 110 }
     ];
 
-    // Dimensioni e parametri fisici aggiornati per le botti
     const obstacles = [
-      { x: 5, width: 2.5, height: 1.2, depth: 3, mesh: null },
-      { x: 30, width: 2.5, height: 1.2, depth: 3, mesh: null },
-      { x: 58, width: 2.5, height: 1.2, depth: 3, mesh: null },
-      { x: 88, width: 2.5, height: 1.2, depth: 3, mesh: null }
+      { x: 5, width: 1.4, height: 1.4, depth: 3 },
+      { x: 30, width: 1.6, height: 1.6, depth: 3 },
+      { x: 58, width: 1.5, height: 1.5, depth: 3 },
+      { x: 88, width: 1.8, height: 1.8, depth: 3 }
     ];
 
     const pumpkins = [
@@ -267,7 +266,6 @@
       if (typeof THREE.GLTFLoader !== 'undefined') {
         const loader = new THREE.GLTFLoader();
 
-        // Caricamento Giocatore
         loader.load(
           './walle08.glb',
           (gltf) => {
@@ -298,49 +296,6 @@
           (err) => console.warn("Modello walle08.glb non trovato, in uso il segnaposto.", err)
         );
 
-        // Caricamento Modello Botti (bott1_02_1024.glb)
-        loader.load(
-          './bott1_02_1024.glb',
-          (gltf) => {
-            const baseBarrel = gltf.scene;
-
-            obstacles.forEach(obs => {
-              const barrel = baseBarrel.clone();
-
-              // Ridimensiona il modello mantenendo l'altezza fisica target
-              const box = new THREE.Box3().setFromObject(barrel);
-              const size = box.getSize(new THREE.Vector3());
-              const maxDim = Math.max(size.x, size.y, size.z);
-              const targetScale = obs.height / (maxDim || 1);
-
-              barrel.scale.setScalar(targetScale);
-
-              // Calcola il punto più in basso dopo lo scaling
-              const scaledBox = new THREE.Box3().setFromObject(barrel);
-              
-              // Sposta il modello affinché la sua base tocchi perfettamente Y = 0
-              barrel.position.y = -scaledBox.min.y;
-
-              const barrelGroup = new THREE.Group();
-              barrelGroup.add(barrel);
-              barrelGroup.position.set(obs.x, groundY, foregroundZ);
-
-              barrelGroup.traverse((child) => {
-                if (child.isMesh) {
-                  child.castShadow = true;
-                  child.receiveShadow = true;
-                }
-              });
-
-              obs.mesh = barrelGroup;
-              scene.add(barrelGroup);
-            });
-          },
-          undefined,
-          (err) => console.warn("Modello bott1_02_1024.glb non trovato.", err)
-        );
-
-        // Caricamento Alberi
         loader.load(
           './tree.glb',
           (gltf) => {
@@ -397,6 +352,7 @@
 
     function createLevel() {
       const groundMat = new THREE.MeshLambertMaterial({ color: 0x22112a });
+      const obstacleMat = new THREE.MeshLambertMaterial({ color: 0x4a3b52 });
 
       // Terreno a Y = -1 con altezza 2 (Superficie superiore = 0.0)
       platforms.forEach(p => {
@@ -404,6 +360,15 @@
         const geo = new THREE.BoxGeometry(length, 2, 15);
         const mesh = new THREE.Mesh(geo, groundMat);
         mesh.position.set(p.start + length / 2, -1, 0);
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+      });
+
+      obstacles.forEach(obs => {
+        const geo = new THREE.BoxGeometry(obs.width, obs.height, obs.depth);
+        const mesh = new THREE.Mesh(geo, obstacleMat);
+        mesh.position.set(obs.x, obs.height / 2, foregroundZ);
+        mesh.castShadow = true;
         mesh.receiveShadow = true;
         scene.add(mesh);
       });
@@ -578,9 +543,10 @@
       const currentX = player.position.x;
       const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
       
+      // La base del personaggio tocca perfettamente groundY = 0.0 (centro a 0.8)
       let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
 
-      // Calcolo preciso dell'atterraggio sulla cima delle botti
+      // Atterraggio sugli ostacoli
       obstacles.forEach(obs => {
         const obsTopCenter = obs.height + playerHalfHeight;
         const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth + 0.05;
@@ -601,7 +567,7 @@
         isGrounded = false;
       }
 
-      // 2. Movimento Orizzontale gestito dall'Analogico
+      // 2. Movimento Orizzontale gestito dall'Analogico (analogX)
       let intendedX = player.position.x;
 
       if (Math.abs(analogX) > 0.15) {
@@ -614,7 +580,7 @@
         }
       }
 
-      // Collisioni laterali con le botti
+      // Blocco collisioni laterali
       obstacles.forEach(obs => {
         const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth;
         const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth;
@@ -633,13 +599,13 @@
       player.position.x = intendedX;
       player.position.z = foregroundZ;
 
-      // Salto
+      // Comando Salto
       if (isJumpPressed && isGrounded) {
         velocityY = jumpStrength;
         isGrounded = false;
       }
 
-      // Sconfitta per caduta
+      // Sconfitta per caduta nel vuoto
       if (player.position.y < -6) {
         endGame(false, "Sei caduto nell'oscurità!");
       }
