@@ -166,11 +166,12 @@
       { start: 77, end: 110 }
     ];
 
+    // Dimensioni e parametri fisici aggiornati per le botti
     const obstacles = [
-      { x: 5, width: 1.4, height: 1.4, depth: 3, mesh: null },
-      { x: 30, width: 1.6, height: 1.6, depth: 3, mesh: null },
-      { x: 58, width: 1.5, height: 1.5, depth: 3, mesh: null },
-      { x: 88, width: 1.8, height: 1.8, depth: 3, mesh: null }
+      { x: 5, width: 2.5, height: 1.2, depth: 3, mesh: null },
+      { x: 30, width: 2.5, height: 1.2, depth: 3, mesh: null },
+      { x: 58, width: 2.5, height: 1.2, depth: 3, mesh: null },
+      { x: 88, width: 2.5, height: 1.2, depth: 3, mesh: null }
     ];
 
     const pumpkins = [
@@ -266,7 +267,7 @@
       if (typeof THREE.GLTFLoader !== 'undefined') {
         const loader = new THREE.GLTFLoader();
 
-        // CARICAMENTO GIOCATORE
+        // Caricamento Giocatore
         loader.load(
           './walle08.glb',
           (gltf) => {
@@ -297,7 +298,7 @@
           (err) => console.warn("Modello walle08.glb non trovato, in uso il segnaposto.", err)
         );
 
-        // CARICAMENTO OSTACOLI (bott1_02_1024.glb)
+        // Caricamento Modello Botti (bott1_02_1024.glb)
         loader.load(
           './bott1_02_1024.glb',
           (gltf) => {
@@ -306,7 +307,7 @@
             obstacles.forEach(obs => {
               const barrel = baseBarrel.clone();
 
-              // Ridimensionamento adattativo basato sull'altezza definita nell'ostacolo
+              // Ridimensiona il modello mantenendo l'altezza fisica target
               const box = new THREE.Box3().setFromObject(barrel);
               const size = box.getSize(new THREE.Vector3());
               const maxDim = Math.max(size.x, size.y, size.z);
@@ -314,13 +315,15 @@
 
               barrel.scale.setScalar(targetScale);
 
+              // Calcola il punto più in basso dopo lo scaling
               const scaledBox = new THREE.Box3().setFromObject(barrel);
-              const center = scaledBox.getCenter(new THREE.Vector3());
-              barrel.position.sub(center);
+              
+              // Sposta il modello affinché la sua base tocchi perfettamente Y = 0
+              barrel.position.y = -scaledBox.min.y;
 
               const barrelGroup = new THREE.Group();
               barrelGroup.add(barrel);
-              barrelGroup.position.set(obs.x, obs.height / 2, foregroundZ);
+              barrelGroup.position.set(obs.x, groundY, foregroundZ);
 
               barrelGroup.traverse((child) => {
                 if (child.isMesh) {
@@ -337,7 +340,7 @@
           (err) => console.warn("Modello bott1_02_1024.glb non trovato.", err)
         );
 
-        // CARICAMENTO ALBERI
+        // Caricamento Alberi
         loader.load(
           './tree.glb',
           (gltf) => {
@@ -577,7 +580,7 @@
       
       let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
 
-      // Atterraggio sugli ostacoli
+      // Calcolo preciso dell'atterraggio sulla cima delle botti
       obstacles.forEach(obs => {
         const obsTopCenter = obs.height + playerHalfHeight;
         const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth + 0.05;
@@ -611,7 +614,7 @@
         }
       }
 
-      // Blocco collisioni laterali
+      // Collisioni laterali con le botti
       obstacles.forEach(obs => {
         const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth;
         const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth;
@@ -630,13 +633,13 @@
       player.position.x = intendedX;
       player.position.z = foregroundZ;
 
-      // Comando Salto
+      // Salto
       if (isJumpPressed && isGrounded) {
         velocityY = jumpStrength;
         isGrounded = false;
       }
 
-      // Sconfitta per caduta nel vuoto
+      // Sconfitta per caduta
       if (player.position.y < -6) {
         endGame(false, "Sei caduto nell'oscurità!");
       }
