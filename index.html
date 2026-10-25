@@ -40,7 +40,23 @@
       color: #ff9d00;
       box-shadow: 0 0 15px rgba(255, 120, 0, 0.2);
       display: flex;
+      align-items: center;
       gap: 15px;
+    }
+
+    #btn-reset-lvl1 {
+      pointer-events: auto;
+      background: rgba(255, 69, 0, 0.3);
+      border: 1px solid #ff4500;
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #btn-reset-lvl1:hover {
+      background: rgba(255, 69, 0, 0.7);
     }
 
     #level-transition-banner {
@@ -48,7 +64,7 @@
       top: 40%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(10, 5, 20, 0.9);
+      background: rgba(10, 5, 20, 0.92);
       border: 2px solid #ff9d00;
       padding: 20px 40px;
       border-radius: 16px;
@@ -68,6 +84,14 @@
       color: #ffaa00;
       text-shadow: 0 0 10px #ff4500;
     }
+    .checkpoint-tag {
+      font-size: 14px;
+      color: #00e5ff;
+      margin-top: 8px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
 
     #game-over-overlay {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -77,12 +101,21 @@
     #game-over-overlay.hidden { display: none; }
     #game-over-overlay h1 { font-size: 42px; margin-bottom: 10px; text-shadow: 0 0 10px #ff4500; text-align: center; }
     #game-over-overlay p { font-size: 18px; margin-bottom: 20px; color: #dcdcdc; text-align: center; max-width: 80%; }
-    #restart-btn {
-      padding: 12px 28px; font-size: 18px; font-weight: bold; color: #fff;
-      background: #d35400; border: none; border-radius: 8px; cursor: pointer;
-      box-shadow: 0 4px 10px rgba(211, 84, 0, 0.5); transition: background 0.2s;
+    
+    .btn-group {
+      display: flex;
+      gap: 15px;
     }
+    .game-btn {
+      padding: 12px 24px; font-size: 16px; font-weight: bold; color: #fff;
+      border: none; border-radius: 8px; cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: transform 0.1s, background 0.2s;
+    }
+    .game-btn:active { transform: scale(0.96); }
+    #restart-btn { background: #d35400; }
     #restart-btn:hover { background: #e67e22; }
+    #restart-lvl1-btn { background: #4a235a; border: 1px solid #8e44ad; }
+    #restart-lvl1-btn:hover { background: #5b2c6f; }
 
     /* JOYSTICK ANALOGICO */
     #joystick-container {
@@ -148,17 +181,22 @@
   <div id="ui-overlay">
     <div>🏷️ <span id="level-display">Livello 1</span></div>
     <div>⏱️ Tempo: <span id="timer">40</span>s</div>
+    <button id="btn-reset-lvl1" onclick="restartFromLvl1()" title="Ricomincia dal Livello 1">↺ Lvl 1</button>
   </div>
 
   <div id="level-transition-banner" class="hidden">
     <h2 id="banner-title">LIVELLO 2</h2>
     <p id="banner-sub" style="margin: 5px 0 0 0; color: #e0e0e0;">Attento ai Pipistrelli Volanti!</p>
+    <div class="checkpoint-tag">💾 Checkpoint Salvato</div>
   </div>
 
   <div id="game-over-overlay" class="hidden">
     <h1 id="status-title">GAME OVER</h1>
     <p id="status-desc">Sei caduto nel vuoto!</p>
-    <button id="restart-btn" onclick="resetGame()">Ricomincia</button>
+    <div class="btn-group">
+      <button id="restart-btn" class="game-btn" onclick="resetGame()">Ricomincia da Checkpoint</button>
+      <button id="restart-lvl1-btn" class="game-btn" onclick="restartFromLvl1()">Ricomincia da Lvl 1</button>
+    </div>
   </div>
 
   <div id="joystick-container">
@@ -172,6 +210,7 @@
   <script>
     let scene, camera, renderer, player, playerWalle, playerEvee, finishRing;
     let currentLevel = 1;
+    let checkpointLevel = 1; // Registro del Checkpoint sbloccato
     let isGameOver = false;
 
     let timeLeft = 40;
@@ -313,7 +352,6 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Fumi / Smog industriale
       for (let i = 0; i < 30; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
@@ -471,7 +509,7 @@
           },
           undefined,
           (err) => {
-            console.warn("Modello evee.glb non trovato. Creo un segnaposto speciale per Evee.", err);
+            console.warn("Modello evee.glb non trovato. Creo segnaposto per Evee.", err);
             createFallbackEvee();
           }
         );
@@ -618,14 +656,12 @@
         const batMat = new THREE.MeshStandardMaterial({ color: 0x111115, roughness: 0.5 });
         const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
-        // Corpo
         const bodyGeo = new THREE.SphereGeometry(0.35, 12, 12);
         bodyGeo.scale(1, 1.2, 0.8);
         const body = new THREE.Mesh(bodyGeo, batMat);
         body.castShadow = true;
         batGroup.add(body);
 
-        // Occhi rossi
         const eyeGeo = new THREE.SphereGeometry(0.06, 8, 8);
         const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
         leftEye.position.set(-0.12, 0.1, 0.28);
@@ -633,7 +669,6 @@
         rightEye.position.set(0.12, 0.1, 0.28);
         batGroup.add(leftEye, rightEye);
 
-        // Orecchie
         const earGeo = new THREE.ConeGeometry(0.1, 0.25, 4);
         const leftEar = new THREE.Mesh(earGeo, batMat);
         leftEar.position.set(-0.18, 0.38, 0);
@@ -643,7 +678,6 @@
         rightEar.rotation.z = 0.3;
         batGroup.add(leftEar, rightEar);
 
-        // Ala Sinistra
         const leftWingGroup = new THREE.Group();
         leftWingGroup.position.set(-0.25, 0.05, 0);
         const wingShape = new THREE.Shape();
@@ -658,7 +692,6 @@
         leftWingGroup.add(leftWing);
         batGroup.add(leftWingGroup);
 
-        // Ala Destra
         const rightWingGroup = new THREE.Group();
         rightWingGroup.position.set(0.25, 0.05, 0);
         const rightWingShape = new THREE.Shape();
@@ -674,7 +707,7 @@
         batGroup.add(rightWingGroup);
 
         batGroup.position.set(b.minX, b.baseY, foregroundZ);
-        batGroup.visible = false; // Invisibile nei livelli 1 e 3
+        batGroup.visible = false;
 
         b.mesh = batGroup;
         b.leftWing = leftWingGroup;
@@ -701,7 +734,6 @@
         mesh.receiveShadow = true;
         obsGroup.add(mesh);
 
-        // Luce decorativa futuristica sugli ostacoli
         const lightStripGeo = new THREE.BoxGeometry(obs.width + 0.1, 0.1, 3.1);
         const lightStrip = new THREE.Mesh(lightStripGeo, lightCyanMat);
         lightStrip.position.set(0, (Math.random() - 0.5) * obs.height * 0.8, 0);
@@ -712,7 +744,6 @@
         industrialPipesGroup.add(obsGroup);
       });
 
-      // Strutture metalliche di sfondo / Piloni industriali
       for (let x = -10; x <= 110; x += 12) {
         const pillarGeo = new THREE.CylinderGeometry(0.8, 1.2, 12, 8);
         const pillar = new THREE.Mesh(pillarGeo, rustMat);
@@ -788,15 +819,56 @@
       currentLevel = level;
       document.getElementById('level-display').innerText = `Livello ${currentLevel}`;
 
-      if (level === 2) {
+      // Salva automaticamente il checkpoint per il livello raggiunto
+      if (level > checkpointLevel) {
+        checkpointLevel = level;
+      }
+
+      if (level === 1) {
+        pumpkins.forEach(p => { if (p.mesh) p.mesh.visible = true; });
+        bats.forEach(b => { if (b.mesh) b.mesh.visible = false; });
+        if (industrialPipesGroup) industrialPipesGroup.visible = false;
+
+        scene.background = halloweenBgTexture;
+        scene.fog = new THREE.FogExp2(0x1a0a2a, 0.015);
+        const ambLight = scene.getObjectByName("ambientLight");
+        if (ambLight) ambLight.color.setHex(0x8a55a5);
+        const dirLight = scene.getObjectByName("moonLight");
+        if (dirLight) dirLight.color.setHex(0xffa500);
+
+        if (playerEvee) playerEvee.visible = false;
+        if (playerWalle) {
+          playerWalle.visible = true;
+          playerWalle.position.set(0, groundY + playerHalfHeight, foregroundZ);
+          player = playerWalle;
+          velocityY = 0;
+        }
+
+        document.getElementById('btn-jump').style.display = 'flex';
+        timeLeft = 40;
+        document.getElementById('timer').innerText = timeLeft;
+
+      } else if (level === 2) {
         pumpkins.forEach(p => { if (p.mesh) p.mesh.visible = false; });
         bats.forEach(b => { if (b.mesh) b.mesh.visible = true; });
         if (industrialPipesGroup) industrialPipesGroup.visible = false;
 
-        if (player) {
-          player.position.set(0, groundY + playerHalfHeight, foregroundZ);
+        scene.background = halloweenBgTexture;
+        scene.fog = new THREE.FogExp2(0x1a0a2a, 0.015);
+        const ambLight = scene.getObjectByName("ambientLight");
+        if (ambLight) ambLight.color.setHex(0x8a55a5);
+        const dirLight = scene.getObjectByName("moonLight");
+        if (dirLight) dirLight.color.setHex(0xffa500);
+
+        if (playerEvee) playerEvee.visible = false;
+        if (playerWalle) {
+          playerWalle.visible = true;
+          playerWalle.position.set(0, groundY + playerHalfHeight, foregroundZ);
+          player = playerWalle;
           velocityY = 0;
         }
+
+        document.getElementById('btn-jump').style.display = 'flex';
 
         const banner = document.getElementById('level-transition-banner');
         document.getElementById('banner-title').innerText = "LIVELLO 2";
@@ -806,13 +878,12 @@
 
         timeLeft = 40;
         document.getElementById('timer').innerText = timeLeft;
+
       } else if (level === 3) {
-        // PASSAGGIO AL LIVELLO 3: EVEE E FUTURO DIMENTICATO
         pumpkins.forEach(p => { if (p.mesh) p.mesh.visible = false; });
         bats.forEach(b => { if (b.mesh) b.mesh.visible = false; });
         if (industrialPipesGroup) industrialPipesGroup.visible = true;
 
-        // Cambio Sfondo & Luce di Scena per lo stile "Area Industriale"
         scene.background = industrialBgTexture;
         scene.fog = new THREE.FogExp2(0x08282e, 0.02);
 
@@ -821,7 +892,6 @@
         const dirLight = scene.getObjectByName("moonLight");
         if (dirLight) dirLight.color.setHex(0x00e5ff);
 
-        // Nascondi Walle, Mostra Evee
         if (playerWalle) playerWalle.visible = false;
         if (playerEvee) {
           playerEvee.visible = true;
@@ -829,7 +899,6 @@
           player = playerEvee;
         }
 
-        // Nascondi pulsante di salto (il livello 3 usa il volo/movimento Y continuo)
         document.getElementById('btn-jump').style.display = 'none';
 
         const banner = document.getElementById('level-transition-banner');
@@ -910,7 +979,6 @@
         }
       });
 
-      // Supporto Tastiera (Frecce o W-S) per il movimento Y nel Livello 3
       window.addEventListener('keydown', (e) => {
         if (currentLevel === 3) {
           if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') analogY = -1;
@@ -945,7 +1013,6 @@
       if (!player || isGameOver) return;
 
       if (currentLevel === 1 || currentLevel === 2) {
-        // LOGICA LIVELLI 1 E 2 (INALTERATA)
         player.position.y += velocityY;
         velocityY += gravity;
 
@@ -1026,25 +1093,20 @@
         camera.lookAt(player.position.x, cameraHeight - 0.5, foregroundZ);
 
       } else if (currentLevel === 3) {
-        // LOGICA LIVELLO 3: MOVIMENTO ORIZZONTALE AUTOMATICO & CONTROLLO VERTICALE DI EVEE
         const autoForwardSpeed = 0.14;
         player.position.x += autoForwardSpeed;
 
-        // Controllo manuale dell'altezza (In alto / In basso via Analogico Y)
         const verticalFlySpeed = 0.15;
         if (Math.abs(analogY) > 0.15) {
-          player.position.y -= analogY * verticalFlySpeed; // Inverte Y per coordinata naturale
+          player.position.y -= analogY * verticalFlySpeed;
         }
 
-        // Limiti altezza volo
         player.position.y = Math.max(0.6, Math.min(6.5, player.position.y));
         player.position.z = foregroundZ;
 
-        // Inclinazione decorativa di Evee durante la salita/discesa
         player.rotation.z = -analogY * 0.3;
         player.rotation.y = Math.PI / 2;
 
-        // COLLISIONE CON GLI OSTACOLI INDUSTRIALI
         const eveeRadius = 0.6;
         industrialObstacles.forEach(obs => {
           const obsMinX = obs.x - (obs.width / 2) - eveeRadius;
@@ -1059,12 +1121,10 @@
           }
         });
 
-        // Vittoria Finale al completamento del livello 3
         if (player.position.x >= 98) {
           endGame(true, `VITTORIA ASSOLUTA! 🤖✨\nHai condotto Walle ed Evee attraverso tutti e 3 i livelli in ${timeLeft}s!`);
         }
 
-        // Telecamera in inseguimento dinamico orizzontale
         camera.position.x = player.position.x;
         camera.position.y = 3.2;
         camera.position.z = cameraDistance;
@@ -1083,39 +1143,25 @@
       title.innerText = victory ? "VITTORIA ASSOLUTA! 🏆" : "MISSIONE FALLITA 👻";
       title.style.color = victory ? "#00e5ff" : "#ff3300";
       desc.innerText = message;
+
+      const restartBtn = document.getElementById('restart-btn');
+      restartBtn.innerText = victory ? "Rigioca dal Checkpoint" : `Ricomincia da Lvl ${checkpointLevel}`;
+
       overlay.classList.remove('hidden');
     }
 
+    // Riparte dall'ultimo Checkpoint sbloccato
     function resetGame() {
       isGameOver = false;
-      currentLevel = 1;
-      document.getElementById('level-display').innerText = "Livello 1";
       document.getElementById('game-over-overlay').classList.add('hidden');
-      document.getElementById('btn-jump').style.display = 'flex';
-
-      // Ripristino grafiche e luci del livello 1
-      scene.background = halloweenBgTexture;
-      scene.fog = new THREE.FogExp2(0x1a0a2a, 0.015);
-      const ambLight = scene.getObjectByName("ambientLight");
-      if (ambLight) ambLight.color.setHex(0x8a55a5);
-      const dirLight = scene.getObjectByName("moonLight");
-      if (dirLight) dirLight.color.setHex(0xffa500);
-
-      pumpkins.forEach(p => { if (p.mesh) p.mesh.visible = true; });
-      bats.forEach(b => { if (b.mesh) b.mesh.visible = false; });
-      if (industrialPipesGroup) industrialPipesGroup.visible = false;
-
-      if (playerEvee) playerEvee.visible = false;
-      if (playerWalle) {
-        playerWalle.visible = true;
-        playerWalle.position.set(0, groundY + playerHalfHeight, foregroundZ);
-        player = playerWalle;
-        velocityY = 0;
-      }
-
-      timeLeft = 40;
-      document.getElementById('timer').innerText = timeLeft;
+      switchLevel(checkpointLevel);
       startTimer();
+    }
+
+    // Forza il riavvio dal Livello 1
+    function restartFromLvl1() {
+      checkpointLevel = 1;
+      resetGame();
     }
 
     function animate() {
