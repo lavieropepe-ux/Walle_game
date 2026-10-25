@@ -167,10 +167,10 @@
     ];
 
     const obstacles = [
-      { x: 5, width: 1.4, height: 1.4, depth: 3 },
-      { x: 30, width: 1.6, height: 1.6, depth: 3 },
-      { x: 58, width: 1.5, height: 1.5, depth: 3 },
-      { x: 88, width: 1.8, height: 1.8, depth: 3 }
+      { x: 5, width: 1.4, height: 1.4, depth: 3, mesh: null },
+      { x: 30, width: 1.6, height: 1.6, depth: 3, mesh: null },
+      { x: 58, width: 1.5, height: 1.5, depth: 3, mesh: null },
+      { x: 88, width: 1.8, height: 1.8, depth: 3, mesh: null }
     ];
 
     const pumpkins = [
@@ -266,6 +266,7 @@
       if (typeof THREE.GLTFLoader !== 'undefined') {
         const loader = new THREE.GLTFLoader();
 
+        // CARICAMENTO GIOCATORE (WALLE08)
         loader.load(
           './walle08.glb',
           (gltf) => {
@@ -296,6 +297,48 @@
           (err) => console.warn("Modello walle08.glb non trovato, in uso il segnaposto.", err)
         );
 
+        // CARICAMENTO OSTACOLI (BOTTI)
+        loader.load(
+          './botti1_02_1024.glb',
+          (gltf) => {
+            const baseBarrel = gltf.scene;
+
+            obstacles.forEach(obs => {
+              const barrel = baseBarrel.clone();
+
+              // Calcolo scala per adattare la botte alle dimensioni specificate
+              const box = new THREE.Box3().setFromObject(barrel);
+              const size = box.getSize(new THREE.Vector3());
+              const maxDim = Math.max(size.x, size.y, size.z);
+              const targetScale = obs.height / (maxDim || 1);
+
+              barrel.scale.setScalar(targetScale);
+
+              // Centratura del modello rispetto alla sua origine fisica
+              const scaledBox = new THREE.Box3().setFromObject(barrel);
+              const center = scaledBox.getCenter(new THREE.Vector3());
+              barrel.position.sub(center);
+
+              const barrelGroup = new THREE.Group();
+              barrelGroup.add(barrel);
+              barrelGroup.position.set(obs.x, obs.height / 2, foregroundZ);
+
+              barrelGroup.traverse((child) => {
+                if (child.isMesh) {
+                  child.castShadow = true;
+                  child.receiveShadow = true;
+                }
+              });
+
+              obs.mesh = barrelGroup;
+              scene.add(barrelGroup);
+            });
+          },
+          undefined,
+          (err) => console.warn("Modello botti1_02_1024.glb non trovato.", err)
+        );
+
+        // CARICAMENTO ALBERI
         loader.load(
           './tree.glb',
           (gltf) => {
@@ -352,7 +395,6 @@
 
     function createLevel() {
       const groundMat = new THREE.MeshLambertMaterial({ color: 0x22112a });
-      const obstacleMat = new THREE.MeshLambertMaterial({ color: 0x4a3b52 });
 
       // Terreno a Y = -1 con altezza 2 (Superficie superiore = 0.0)
       platforms.forEach(p => {
@@ -360,15 +402,6 @@
         const geo = new THREE.BoxGeometry(length, 2, 15);
         const mesh = new THREE.Mesh(geo, groundMat);
         mesh.position.set(p.start + length / 2, -1, 0);
-        mesh.receiveShadow = true;
-        scene.add(mesh);
-      });
-
-      obstacles.forEach(obs => {
-        const geo = new THREE.BoxGeometry(obs.width, obs.height, obs.depth);
-        const mesh = new THREE.Mesh(geo, obstacleMat);
-        mesh.position.set(obs.x, obs.height / 2, foregroundZ);
-        mesh.castShadow = true;
         mesh.receiveShadow = true;
         scene.add(mesh);
       });
