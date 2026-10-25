@@ -266,7 +266,7 @@
       if (typeof THREE.GLTFLoader !== 'undefined') {
         const loader = new THREE.GLTFLoader();
 
-        // Caricamento del giocatore
+        // CARICAMENTO GIOCATORE
         loader.load(
           './walle08.glb',
           (gltf) => {
@@ -297,7 +297,7 @@
           (err) => console.warn("Modello walle08.glb non trovato, in uso il segnaposto.", err)
         );
 
-        // Caricamento ostacoli modello botte
+        // CARICAMENTO OSTACOLI (bott1_02_1024.glb)
         loader.load(
           './bott1_02_1024.glb',
           (gltf) => {
@@ -306,7 +306,7 @@
             obstacles.forEach(obs => {
               const barrel = baseBarrel.clone();
 
-              // Normalizzazione e scalatura automatica per far coincidere l'altezza dell'ostacolo
+              // Ridimensionamento adattativo basato sull'altezza definita nell'ostacolo
               const box = new THREE.Box3().setFromObject(barrel);
               const size = box.getSize(new THREE.Vector3());
               const maxDim = Math.max(size.x, size.y, size.z);
@@ -314,7 +314,6 @@
 
               barrel.scale.setScalar(targetScale);
 
-              // Calcolo del centro dopo la scalatura
               const scaledBox = new THREE.Box3().setFromObject(barrel);
               const center = scaledBox.getCenter(new THREE.Vector3());
               barrel.position.sub(center);
@@ -334,10 +333,11 @@
               scene.add(barrelGroup);
             });
           },
-          
+          undefined,
+          (err) => console.warn("Modello bott1_02_1024.glb non trovato.", err)
         );
 
-        // Caricamento alberi
+        // CARICAMENTO ALBERI
         loader.load(
           './tree.glb',
           (gltf) => {
@@ -575,7 +575,6 @@
       const currentX = player.position.x;
       const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
       
-      // La base del personaggio tocca perfettamente groundY = 0.0 (centro a 0.8)
       let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
 
       // Atterraggio sugli ostacoli
@@ -599,7 +598,7 @@
         isGrounded = false;
       }
 
-      // 2. Movimento Orizzontale gestito dall'Analogico (analogX)
+      // 2. Movimento Orizzontale gestito dall'Analogico
       let intendedX = player.position.x;
 
       if (Math.abs(analogX) > 0.15) {
