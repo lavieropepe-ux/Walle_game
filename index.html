@@ -283,7 +283,7 @@
     ];
     let industrialPipesGroup = null;
 
-    // Elementi Livello 4 (Mondo Buio, 3 Luci, Evee Nascosta, Cuore)
+    // Elementi Livello 4 (Open World, 3 Luci, Evee Nascosta, Cuore)
     let darkWorldGroup = null;
     let hiddenLights = [];
     let lightsActivatedCount = 0;
@@ -293,6 +293,7 @@
 
     // Elementi Intro Livello 1 (Muro e Evee a sinistra)
     let introGroup = null;
+    let introWallX = -2.0; // Posizione X del muro divisorio
 
     const cameraHeight = 3.5;
     const cameraDistance = 14.0;
@@ -330,7 +331,7 @@
       const canvas = document.createElement('canvas');
       canvas.width = 1024; canvas.height = 1024;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#020205'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#060612'; ctx.fillRect(0, 0, canvas.width, canvas.height); // Leggermente illuminato
       return new THREE.CanvasTexture(canvas);
     }
 
@@ -436,7 +437,7 @@
           (err) => console.warn("Modello walle08.glb non trovato, uso il segnaposto.", err)
         );
 
-        // 3. PERSONAGGIO EVEE (evee.glb - Livelli 3 e 4)
+        // 3. PERSONAGGIO EVEE (evee.glb - Livelli 3 e 4, e intro a sinistra)
         loader.load(
           './evee.glb',
           (gltf) => {
@@ -459,18 +460,18 @@
             playerEvee.visible = false;
             scene.add(playerEvee);
 
-            // Evee per Intro Livello 1 (a sinistra)
+            // Evee per Intro Livello 1 (a sinistra del muro)
             if (introGroup) {
               const introEvee = loadedModel.clone();
               introEvee.scale.setScalar(scale);
-              introEvee.position.set(-4, groundY, foregroundZ);
+              introEvee.position.set(-4.5, groundY, foregroundZ);
               introGroup.add(introEvee);
             }
 
-            // Evee per Livello 4 (Mondo Buio)
+            // Evee per Livello 4 (Open World)
             darkWorldEvee = new THREE.Group();
             darkWorldEvee.add(loadedModel.clone());
-            darkWorldEvee.position.set(25, groundY, foregroundZ);
+            darkWorldEvee.position.set(22, groundY, foregroundZ);
             darkWorldEvee.visible = false;
             scene.add(darkWorldEvee);
           },
@@ -549,14 +550,14 @@
       }
       if (introGroup && introGroup.children.length === 1) {
         const fallbackEveeIntro = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 16), new THREE.MeshStandardMaterial({ color: 0x00e5ff }));
-        fallbackEveeIntro.position.set(-4, groundY + 0.7, foregroundZ);
+        fallbackEveeIntro.position.set(-4.5, groundY + 0.7, foregroundZ);
         introGroup.add(fallbackEveeIntro);
       }
       if (!darkWorldEvee) {
         darkWorldEvee = new THREE.Group();
         const fallbackEveeDark = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 16), new THREE.MeshStandardMaterial({ color: 0x00e5ff }));
         darkWorldEvee.add(fallbackEveeDark);
-        darkWorldEvee.position.set(25, groundY + 0.7, foregroundZ);
+        darkWorldEvee.position.set(22, groundY + 0.7, foregroundZ);
         darkWorldEvee.visible = false;
         scene.add(darkWorldEvee);
       }
@@ -566,11 +567,11 @@
     function createIntroDecorations() {
       introGroup = new THREE.Group();
 
-      // Muro divisorio posizionato a sinistra (es. a X = -2)
-      const wallGeo = new THREE.BoxGeometry(1.2, 3.5, 3);
+      // Muro divisorio posizionato a sinistra (a X = -2.5)
+      const wallGeo = new THREE.BoxGeometry(1.0, 3.5, 3);
       const wallMat = new THREE.MeshStandardMaterial({ color: 0x5c5666, roughness: 0.7 });
       const wall = new THREE.Mesh(wallGeo, wallMat);
-      wall.position.set(-2, 1.75, foregroundZ);
+      wall.position.set(introWallX, 1.75, foregroundZ);
       wall.castShadow = true; wall.receiveShadow = true;
       introGroup.add(wall);
 
@@ -701,26 +702,25 @@
       scene.add(industrialPipesGroup);
     }
 
-    // Creazione del Quarto Scenario (Mondo Buio, 3 Luci nascoste, Cuore finale)
+    // Creazione del Quarto Scenario Open World (Mondo Buio leggermente illuminato, 3 Luci, Cuore)
     function createDarkWorldEnvironment() {
       darkWorldGroup = new THREE.Group();
       darkWorldGroup.visible = false;
 
-      // Coordinate delle 3 luci nascoste da calpestare
+      // Coordinate delle 3 luci nascoste disparse nell'open world
       const lightPositions = [
-        { x: 8, y: 0.2 },
-        { x: 15, y: 0.2 },
-        { x: 21, y: 0.2 }
+        { x: -5, y: 0.2 },
+        { x: 10, y: 0.2 },
+        { x: 20, y: 0.2 }
       ];
 
       hiddenLights = lightPositions.map((pos, index) => {
         const lightGeo = new THREE.SphereGeometry(0.4, 16, 16);
-        const lightMat = new THREE.MeshBasicMaterial({ color: 0x555555 }); // Spenta all'inizio
+        const lightMat = new THREE.MeshBasicMaterial({ color: 0x666666 });
         const mesh = new THREE.Mesh(lightGeo, lightMat);
         mesh.position.set(pos.x, pos.y, foregroundZ);
 
-        // PointLight debole o spenta finché non viene attivata
-        const pLight = new THREE.PointLight(0x00ffff, 0, 4);
+        const pLight = new THREE.PointLight(0x00ffff, 0, 5);
         pLight.position.set(pos.x, pos.y + 0.5, foregroundZ);
         darkWorldGroup.add(pLight);
 
@@ -728,7 +728,7 @@
         return { mesh: mesh, pointLight: pLight, activated: false, x: pos.x, y: pos.y };
       });
 
-      // Creazione della forma del Cuore sullo sfondo (visibile alla vittoria)
+      // Forma del Cuore sullo sfondo (visibile alla vittoria)
       const heartShape = new THREE.Shape();
       heartShape.fromPoints([
         new THREE.Vector2(0, 0.5),
@@ -746,7 +746,7 @@
       const heartMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0033, roughness: 0.3 });
       heartMesh = new THREE.Mesh(heartGeo, heartMat);
       heartMesh.scale.set(1.2, 1.2, 1.2);
-      heartMesh.position.set(25, 4.0, foregroundZ - 1.0);
+      heartMesh.position.set(22, 4.0, foregroundZ - 1.0);
       heartMesh.visible = false;
       darkWorldGroup.add(heartMesh);
 
@@ -804,7 +804,6 @@
         checkpointLevel = level;
       }
 
-      // Reset visibilità generale
       if (introGroup) introGroup.visible = (level === 1);
       pumpkins.forEach(p => { if (p.mesh) p.mesh.visible = (level === 1); });
       bats.forEach(b => { if (b.mesh) b.mesh.visible = (level === 2); });
@@ -880,15 +879,15 @@
         }, 3000);
 
       } else if (level === 4) {
-        // SETUP LIVELLO 4: MONDO BUIO, TERZA PERSONA DIETRO WALLE08, 3 LUCI
+        // SETUP LIVELLO 4: OPEN WORLD (Mondo buio lievemente illuminato, sterzata libera)
         isLevel3Starting = false;
         scene.background = darkBgTexture;
-        scene.fog = new THREE.FogExp2(0x020205, 0.05); // Nebbia molto scura (mondo buio)
+        scene.fog = new THREE.FogExp2(0x0a0a1a, 0.025); // Nebbia scura ma non totalmente nera
 
         const ambLight = scene.getObjectByName("ambientLight");
-        if (ambLight) ambLight.color.setHex(0x111122); // Luce ambiente minima
+        if (ambLight) ambLight.color.setHex(0x444466); // Luce ambiente piacevole e illuminata
         const dirLight = scene.getObjectByName("moonLight");
-        if (dirLight) dirLight.color.setHex(0x222244);
+        if (dirLight) dirLight.color.setHex(0x555588);
 
         if (playerEvee) playerEvee.visible = false;
         if (playerWalle) {
@@ -898,26 +897,25 @@
           velocityY = 0;
         }
 
-        // Reset stato luci e Evee nascosta
         lightsActivatedCount = 0;
         level4Completed = false;
         if (darkWorldEvee) darkWorldEvee.visible = false;
         if (heartMesh) heartMesh.visible = false;
         hiddenLights.forEach(l => {
           l.activated = false;
-          l.mesh.material.color.setHex(0x555555);
+          l.mesh.material.color.setHex(0x666666);
           l.pointLight.intensity = 0;
         });
 
         document.getElementById('btn-jump').style.display = 'flex';
 
         const banner = document.getElementById('level-transition-banner');
-        document.getElementById('banner-title').innerText = "LIVELLO 4 - MONDO BUIO";
-        document.getElementById('banner-sub').innerText = "Trova e attiva le 3 luci nascoste!";
+        document.getElementById('banner-title').innerText = "LIVELLO 4 - OPEN WORLD";
+        document.getElementById('banner-sub').innerText = "Esplora liberamente e trova le 3 luci nascoste!";
         banner.classList.remove('hidden');
         setTimeout(() => banner.classList.add('hidden'), 3000);
 
-        timeLeft = 60;
+        timeLeft = 90; // Tempo generoso per esplorare l'open world
         document.getElementById('timer').innerText = timeLeft;
         startTimer();
       }
@@ -1060,6 +1058,14 @@
           else if (analogX < 0) player.rotation.y = -Math.PI / 2;
         }
 
+        // COLLISIONE CON IL MURO A SINISTRA NEL LIVELLO 1
+        if (currentLevel === 1) {
+          const wallLeftLimit = introWallX + 0.6 + playerHalfWidth;
+          if (intendedX < wallLeftLimit) {
+            intendedX = wallLeftLimit;
+          }
+        }
+
         obstacles.forEach(obs => {
           const obsMinX = obs.x - (obs.width / 2) - playerHalfWidth;
           const obsMaxX = obs.x + (obs.width / 2) + playerHalfWidth;
@@ -1126,7 +1132,7 @@
         });
 
         if (player.position.x >= 98) {
-          switchLevel(4); // Passaggio al Livello 4 (Mondo Buio)
+          switchLevel(4);
         }
 
         camera.position.x = player.position.x;
@@ -1134,7 +1140,7 @@
         camera.lookAt(player.position.x + 2, 3.2, foregroundZ);
 
       } else if (currentLevel === 4) {
-        // LOGICA LIVELLO 4: MONDO BUIO, TERZA PERSONA DIETRO, 3 LUCI, EVEE, CUORE
+        // LIVELLO 4: OPEN WORLD CON STERZATA LIBERA A 360 GRADI E TERZA PERSONA DINAMICA
         player.position.y += velocityY;
         velocityY += gravity;
 
@@ -1150,32 +1156,36 @@
           isGrounded = false;
         }
 
-        let intendedX = player.position.x;
-        if (Math.abs(analogX) > 0.15) {
-          intendedX += analogX * moveSpeed;
-          if (analogX > 0) player.rotation.y = Math.PI / 2;
-          else if (analogX < 0) player.rotation.y = -Math.PI / 2;
+        // Sterzata e movimento libero in tutte le direzioni (Open World)
+        let moveX = 0;
+        let moveZ = 0;
+        if (Math.abs(analogX) > 0.15 || Math.abs(analogY) > 0.15) {
+          moveX = analogX * moveSpeed;
+          moveZ = analogY * moveSpeed * 0.5; // Movimento in profondità limitato per restare sul piano
+
+          // Orientamento (sterzata) basato sulla direzione del movimento
+          player.rotation.y = Math.atan2(moveX, moveZ) + Math.PI / 2;
         }
 
-        player.position.x = Math.max(-10, Math.min(30, intendedX));
-        player.position.z = foregroundZ;
+        player.position.x = Math.max(-10, Math.min(30, player.position.x + moveX));
+        player.position.z = Math.max(1.0, Math.min(4.0, player.position.z + moveZ));
 
         if (isJumpPressed && isGrounded) {
           velocityY = jumpStrength;
           isGrounded = false;
         }
 
-        // Controllo attivazione delle 3 luci nascoste (calpestandole / avvicinandosi)
+        // Controllo attivazione delle 3 luci nascoste
         hiddenLights.forEach(l => {
           if (!l.activated) {
-            const dist = Math.abs(player.position.x - l.x);
-            if (dist < 0.8 && Math.abs(player.position.y - (groundY + playerHalfHeight)) < 1.0) {
+            const dx = player.position.x - l.x;
+            const dz = player.position.z - foregroundZ;
+            if (Math.sqrt(dx * dx + dz * dz) < 1.0 && Math.abs(player.position.y - (groundY + playerHalfHeight)) < 1.0) {
               l.activated = true;
               l.mesh.material.color.setHex(0x00ffff);
               l.pointLight.intensity = 3.0;
               lightsActivatedCount++;
 
-              // Se attivate tutte e 3, fa comparire Evee
               if (lightsActivatedCount >= 3) {
                 if (darkWorldEvee) darkWorldEvee.visible = true;
               }
@@ -1183,28 +1193,29 @@
           }
         });
 
-        // Controllo se Walle08 si avvicina e tocca Evee nel mondo buio
+        // Controlla se Walle tocca Evee per la vittoria finale
         if (lightsActivatedCount >= 3 && darkWorldEvee && darkWorldEvee.visible) {
           const dx = player.position.x - darkWorldEvee.position.x;
           const dy = player.position.y - (groundY + playerHalfHeight);
-          if (Math.sqrt(dx * dx + dy * dy) < 1.2) {
+          const dz = player.position.z - foregroundZ;
+          if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 1.3) {
             if (!level4Completed) {
               level4Completed = true;
-              if (heartMesh) heartMesh.visible = true; // Mostra il cuore sullo sfondo
-              endGame(true, "VITTORIA FINALE! 🤖❤️✨\nWalle ha ritrovato Evee nel mondo buio!");
+              if (heartMesh) heartMesh.visible = true;
+              endGame(true, "VITTORIA FINALE! 🤖❤️✨\nWalle ha ritrovato Evee nel mondo aperto!");
             }
           }
         }
 
-        // TELECAMERA IN TERZA PERSONA DA DIETRO (Inseguimento ravvicinato)
-        const targetCamX = player.position.x - 3.5;
-        const targetCamY = player.position.y + 2.0;
-        const targetCamZ = foregroundZ + 5.5;
+        // Telecamera in terza persona dinamica da dietro (segue i movimenti fluidi di Walle)
+        const targetCamX = player.position.x - 4.0;
+        const targetCamY = player.position.y + 2.2;
+        const targetCamZ = player.position.z + 5.0;
 
         camera.position.x += (targetCamX - camera.position.x) * 0.1;
         camera.position.y += (targetCamY - camera.position.y) * 0.1;
         camera.position.z += (targetCamZ - camera.position.z) * 0.1;
-        camera.lookAt(player.position.x + 1.0, player.position.y, foregroundZ);
+        camera.lookAt(player.position.x + 1.0, player.position.y, player.position.z);
       }
     }
 
