@@ -117,7 +117,7 @@
     #restart-lvl1-btn { background: #4a235a; border: 1px solid #8e44ad; }
     #restart-lvl1-btn:hover { background: #5b2c6f; }
 
-    /* JOYSTICK ANALOGICO */
+    /* JOYSTICK ANALOGICO MOVIMENTO (SINISTRA) */
     #joystick-container {
       position: absolute;
       bottom: 25px;
@@ -146,7 +146,36 @@
       pointer-events: none;
     }
 
-    /* PULSANTE SALTO */
+    /* JOYSTICK ANALOGICO CAMPO VISIVO (DESTRA - LIVELLO 4) */
+    #camera-joystick-container {
+      position: absolute;
+      bottom: 25px;
+      right: 25px;
+      width: 110px;
+      height: 110px;
+      background: rgba(20, 40, 60, 0.4);
+      border: 2px solid rgba(0, 229, 255, 0.6);
+      border-radius: 50%;
+      z-index: 20;
+      touch-action: none;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+    }
+    #camera-joystick-knob {
+      width: 50px;
+      height: 50px;
+      background: rgba(0, 229, 255, 0.85);
+      border: 2px solid #80d8ff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
+      transition: transform 0.05s ease-out;
+      pointer-events: none;
+    }
+
+    /* PULSANTE SALTO (LIVELLI 1, 2, 4 se attivo) */
     #btn-jump {
       position: absolute;
       bottom: 30px;
@@ -203,6 +232,10 @@
     <div id="joystick-knob"></div>
   </div>
 
+  <div id="camera-joystick-container">
+    <div id="camera-joystick-knob"></div>
+  </div>
+
   <div id="btn-jump">SALTO</div>
 
   <div id="canvas-container"></div>
@@ -219,7 +252,13 @@
 
     let analogX = 0;
     let analogY = 0;
+    let camAnalogX = 0;
+    let camAnalogY = 0;
     let isJumpPressed = false;
+
+    // Angoli rotazione telecamera per Livello 4
+    let cameraYaw = 0;
+    let cameraPitch = 0.3;
 
     const moveSpeed = 0.16;
     let velocityY = 0;
@@ -241,6 +280,9 @@
       { start: 47, end: 70 },
       { start: 77, end: 110 }
     ];
+
+    // Piattaforma Unica senza crateri per Livello 4
+    let level4PlatformMesh = null;
 
     // Ostacoli fisici (Livelli 1 e 2)
     const obstacles = [
@@ -270,7 +312,7 @@
       { minX: 79, maxX: 87, baseY: 2.0, speed: 0.13, dir: -1, radius: 0.55 }
     ];
 
-    // Ostacoli Livello 3: Area Industriale "Futuro Dimenticato"
+    // Ostacoli Livello 3: Area Industriale
     const industrialObstacles = [
       { x: 15, y: 1.0, width: 1.2, height: 3.5, mesh: null },
       { x: 25, y: 4.5, width: 1.2, height: 3.5, mesh: null },
@@ -283,7 +325,7 @@
     ];
     let industrialPipesGroup = null;
 
-    // Elementi Livello 4 (Open World, 3 Luci, Evee Nascosta, Cuore)
+    // Elementi Livello 4 (Open World, 3 Luci Random, Evee Nascosta, Cuore)
     let darkWorldGroup = null;
     let hiddenLights = [];
     let lightsActivatedCount = 0;
@@ -293,7 +335,7 @@
 
     // Elementi Intro Livello 1 (Muro e Evee a sinistra)
     let introGroup = null;
-    let introWallX = -2.0; // Posizione X del muro divisorio
+    let introWallX = -2.0;
 
     const cameraHeight = 3.5;
     const cameraDistance = 14.0;
@@ -376,7 +418,7 @@
       if (typeof THREE.GLTFLoader !== 'undefined') {
         const loader = new THREE.GLTFLoader();
 
-        // 1. CARICAMENTO OSTACOLO GLB (bott1_02_1024.glb)
+        // 1. CARICAMENTO OSTACOLO GLB
         loader.load(
           './bott1_02_1024.glb',
           (gltf) => {
@@ -409,7 +451,7 @@
           (err) => console.warn("Errore caricamento bott1_02_1024.glb:", err)
         );
 
-        // 2. PERSONAGGIO WALLE (walle08.glb)
+        // 2. PERSONAGGIO WALLE
         loader.load(
           './walle08.glb',
           (gltf) => {
@@ -437,7 +479,7 @@
           (err) => console.warn("Modello walle08.glb non trovato, uso il segnaposto.", err)
         );
 
-        // 3. PERSONAGGIO EVEE (evee.glb - Livelli 3 e 4, e intro a sinistra del muro)
+        // 3. PERSONAGGIO EVEE
         loader.load(
           './evee.glb',
           (gltf) => {
@@ -452,7 +494,6 @@
             const center = box.getCenter(new THREE.Vector3());
             loadedModel.position.sub(center);
 
-            // Evee per Livello 3
             playerEvee = new THREE.Group();
             playerEvee.add(loadedModel.clone());
             playerEvee.position.set(0, 2.5, foregroundZ);
@@ -460,7 +501,6 @@
             playerEvee.visible = false;
             scene.add(playerEvee);
 
-            // Evee per Intro Livello 1 (posizionata a sinistra del muro, statica e ben visibile)
             if (introGroup) {
               const introEvee = loadedModel.clone();
               introEvee.scale.setScalar(scale);
@@ -469,7 +509,6 @@
               introGroup.add(introEvee);
             }
 
-            // Evee per Livello 4 (Open World)
             darkWorldEvee = new THREE.Group();
             darkWorldEvee.add(loadedModel.clone());
             darkWorldEvee.position.set(22, groundY, foregroundZ);
@@ -483,7 +522,7 @@
           }
         );
 
-        // 4. ALBERI DI SFONDO (tree.glb)
+        // 4. ALBERI DI SFONDO
         loader.load(
           './tree.glb',
           (gltf) => {
@@ -520,6 +559,7 @@
       }
 
       setupTouchControls();
+      setupCameraJoystickControls();
       startTimer();
       window.addEventListener('resize', onWindowResize);
     }
@@ -564,18 +604,14 @@
       }
     }
 
-    // Creazione del Muro e posizionamento di Evee a sinistra del muro all'inizio del Livello 1
     function createIntroDecorations() {
       introGroup = new THREE.Group();
-
-      // Muro divisorio solido a sinistra di Walle08
       const wallGeo = new THREE.BoxGeometry(1.0, 3.5, 3);
       const wallMat = new THREE.MeshStandardMaterial({ color: 0x5c5666, roughness: 0.7 });
       const wall = new THREE.Mesh(wallGeo, wallMat);
       wall.position.set(introWallX, 1.75, foregroundZ);
       wall.castShadow = true; wall.receiveShadow = true;
       introGroup.add(wall);
-
       scene.add(introGroup);
     }
 
@@ -707,26 +743,28 @@
       darkWorldGroup = new THREE.Group();
       darkWorldGroup.visible = false;
 
-      const lightPositions = [
-        { x: -5, y: 0.2 },
-        { x: 10, y: 0.2 },
-        { x: 20, y: 0.2 }
-      ];
+      // Terreno continuo UNICO senza crateri per Livello 4
+      const level4GroundGeo = new THREE.BoxGeometry(60, 2, 30);
+      const level4GroundMat = new THREE.MeshLambertMaterial({ color: 0x1a1a2e });
+      level4PlatformMesh = new THREE.Mesh(level4GroundGeo, level4GroundMat);
+      level4PlatformMesh.position.set(10, -1, 2);
+      level4PlatformMesh.receiveShadow = true;
+      darkWorldGroup.add(level4PlatformMesh);
 
-      hiddenLights = lightPositions.map((pos, index) => {
+      // Le 3 luci nascoste vengono create e posizionate in maniera casuale
+      hiddenLights = [0, 1, 2].map(() => {
         const lightGeo = new THREE.SphereGeometry(0.4, 16, 16);
-        const lightMat = new THREE.MeshBasicMaterial({ color: 0x666666 });
+        const lightMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
         const mesh = new THREE.Mesh(lightGeo, lightMat);
-        mesh.position.set(pos.x, pos.y, foregroundZ);
 
-        const pLight = new THREE.PointLight(0x00ffff, 0, 5);
-        pLight.position.set(pos.x, pos.y + 0.5, foregroundZ);
+        const pLight = new THREE.PointLight(0x00ffff, 0, 6);
         darkWorldGroup.add(pLight);
-
         darkWorldGroup.add(mesh);
-        return { mesh: mesh, pointLight: pLight, activated: false, x: pos.x, y: pos.y };
+
+        return { mesh: mesh, pointLight: pLight, activated: false, x: 0, y: 0.2, z: 0 };
       });
 
+      // Cuore Finale
       const heartShape = new THREE.Shape();
       heartShape.fromPoints([
         new THREE.Vector2(0, 0.5),
@@ -749,6 +787,21 @@
       darkWorldGroup.add(heartMesh);
 
       scene.add(darkWorldGroup);
+    }
+
+    // Generatore Posizioni Casuali per le Sfere nel Livello 4
+    function randomizeLevel4Lights() {
+      hiddenLights.forEach((l) => {
+        // Genera posizioni casuali nell'area open world senza sovrapposizioni
+        l.x = -8 + Math.random() * 32;
+        l.z = -5 + Math.random() * 14;
+        l.activated = false;
+
+        l.mesh.position.set(l.x, 0.4, l.z);
+        l.mesh.material.color.setHex(0x666666);
+        l.pointLight.position.set(l.x, 0.8, l.z);
+        l.pointLight.intensity = 0;
+      });
     }
 
     function updateEnemies() {
@@ -808,6 +861,9 @@
       if (industrialPipesGroup) industrialPipesGroup.visible = (level === 3);
       if (darkWorldGroup) darkWorldGroup.visible = (level === 4);
 
+      const jumpBtn = document.getElementById('btn-jump');
+      const camJoystickContainer = document.getElementById('camera-joystick-container');
+
       if (level === 1 || level === 2) {
         isLevel3Starting = false;
         scene.background = halloweenBgTexture;
@@ -825,7 +881,9 @@
           velocityY = 0;
         }
 
-        document.getElementById('btn-jump').style.display = 'flex';
+        jumpBtn.style.display = 'flex';
+        camJoystickContainer.style.display = 'none';
+
         timeLeft = 40;
         document.getElementById('timer').innerText = timeLeft;
         startTimer();
@@ -857,7 +915,8 @@
           player = playerEvee;
         }
 
-        document.getElementById('btn-jump').style.display = 'none';
+        jumpBtn.style.display = 'none';
+        camJoystickContainer.style.display = 'none';
 
         const banner = document.getElementById('level-transition-banner');
         document.getElementById('banner-title').innerText = "LIVELLO 3 - EVEE";
@@ -877,14 +936,15 @@
         }, 3000);
 
       } else if (level === 4) {
+        // SETUP LIVELLO 4 (Open World, Rimozione Pulsante Salto -> Joystick Campo Visivo)
         isLevel3Starting = false;
         scene.background = darkBgTexture;
-        scene.fog = new THREE.FogExp2(0x0a0a1a, 0.025);
+        scene.fog = new THREE.FogExp2(0x0a0a1a, 0.02);
 
         const ambLight = scene.getObjectByName("ambientLight");
-        if (ambLight) ambLight.color.setHex(0x444466);
+        if (ambLight) ambLight.color.setHex(0x555577);
         const dirLight = scene.getObjectByName("moonLight");
-        if (dirLight) dirLight.color.setHex(0x555588);
+        if (dirLight) dirLight.color.setHex(0x7777aa);
 
         if (playerEvee) playerEvee.visible = false;
         if (playerWalle) {
@@ -894,23 +954,23 @@
           velocityY = 0;
         }
 
+        // Rimuove il pulsante del salto e abilita l'analogico della telecamera in basso a destra
+        jumpBtn.style.display = 'none';
+        camJoystickContainer.style.display = 'flex';
+
+        // Genera posizioni casuali ad ogni caricamento del livello 4
+        randomizeLevel4Lights();
+
         lightsActivatedCount = 0;
         level4Completed = false;
         if (darkWorldEvee) darkWorldEvee.visible = false;
         if (heartMesh) heartMesh.visible = false;
-        hiddenLights.forEach(l => {
-          l.activated = false;
-          l.mesh.material.color.setHex(0x666666);
-          l.pointLight.intensity = 0;
-        });
-
-        document.getElementById('btn-jump').style.display = 'flex';
 
         const banner = document.getElementById('level-transition-banner');
-        document.getElementById('banner-title').innerText = "LIVELLO 4 - OPEN WORLD";
-        document.getElementById('banner-sub').innerText = "Esplora liberamente e trova le 3 luci nascoste!";
+        document.getElementById('banner-title').innerText = "LIVELLO 4 - CAMPO VISIVO LIBERO";
+        document.getElementById('banner-sub').innerText = "Usa l'analogico a destra per girare la vista e trova le 3 sfere!";
         banner.classList.remove('hidden');
-        setTimeout(() => banner.classList.add('hidden'), 3000);
+        setTimeout(() => banner.classList.add('hidden'), 3500);
 
         timeLeft = 90;
         document.getElementById('timer').innerText = timeLeft;
@@ -1015,6 +1075,62 @@
       btnJump.addEventListener('mouseup', jumpEnd);
     }
 
+    // Configurazione Joystick per il Campo Visivo in Basso a Destra (Livello 4)
+    function setupCameraJoystickControls() {
+      const container = document.getElementById('camera-joystick-container');
+      const knob = document.getElementById('camera-joystick-knob');
+      const maxDistance = 35;
+
+      const handleMove = (clientX, clientY) => {
+        const rect = container.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const deltaX = clientX - centerX;
+        const deltaY = clientY - centerY;
+
+        const clampedX = Math.max(-maxDistance, Math.min(maxDistance, deltaX));
+        const clampedY = Math.max(-maxDistance, Math.min(maxDistance, deltaY));
+        knob.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+
+        camAnalogX = clampedX / maxDistance;
+        camAnalogY = clampedY / maxDistance;
+      };
+
+      const resetAnalog = () => {
+        camAnalogX = 0;
+        camAnalogY = 0;
+        knob.style.transform = `translate(0px, 0px)`;
+      };
+
+      container.addEventListener('touchstart', (e) => {
+        if (e.cancelable) e.preventDefault();
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: false });
+
+      container.addEventListener('touchmove', (e) => {
+        if (e.cancelable) e.preventDefault();
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: false });
+
+      container.addEventListener('touchend', resetAnalog);
+      container.addEventListener('touchcancel', resetAnalog);
+
+      let isMouseDown = false;
+      container.addEventListener('mousedown', (e) => {
+        isMouseDown = true;
+        handleMove(e.clientX, e.clientY);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (isMouseDown) handleMove(e.clientX, e.clientY);
+      });
+      window.addEventListener('mouseup', () => {
+        if (isMouseDown) {
+          isMouseDown = false;
+          resetAnalog();
+        }
+      });
+    }
+
     function updatePlayerMovement() {
       if (!player || isGameOver) return;
 
@@ -1055,7 +1171,6 @@
           else if (analogX < 0) player.rotation.y = -Math.PI / 2;
         }
 
-        // COLLISIONE CON IL MURO A SINISTRA NEL LIVELLO 1
         if (currentLevel === 1) {
           const wallLeftLimit = introWallX + 0.5 + playerHalfWidth;
           if (intendedX < wallLeftLimit) {
@@ -1137,45 +1252,46 @@
         camera.lookAt(player.position.x + 2, 3.2, foregroundZ);
 
       } else if (currentLevel === 4) {
-        player.position.y += velocityY;
-        velocityY += gravity;
-
-        const currentX = player.position.x;
-        const onPlatform = platforms.some(p => currentX >= p.start && currentX <= p.end);
-        let floorY = onPlatform ? (groundY + playerHalfHeight) : -99;
-
-        if (player.position.y <= floorY) {
-          player.position.y = floorY;
-          velocityY = 0;
-          isGrounded = true;
-        } else {
-          isGrounded = false;
-        }
+        // LIVELLO 4: TERRENO CONTINUO SENZA CRATERI, ANALOGICO DESTRA PER IL CAMPO VISIVO
+        player.position.y = groundY + playerHalfHeight; // Terreno continuo senza cadute
 
         let moveX = 0;
         let moveZ = 0;
         if (Math.abs(analogX) > 0.15 || Math.abs(analogY) > 0.15) {
           moveX = analogX * moveSpeed;
-          moveZ = analogY * moveSpeed * 0.5;
+          moveZ = analogY * moveSpeed;
           player.rotation.y = Math.atan2(moveX, moveZ) + Math.PI / 2;
         }
 
-        player.position.x = Math.max(-10, Math.min(30, player.position.x + moveX));
-        player.position.z = Math.max(1.0, Math.min(4.0, player.position.z + moveZ));
+        player.position.x = Math.max(-15, Math.min(35, player.position.x + moveX));
+        player.position.z = Math.max(-8, Math.min(12, player.position.z + moveZ));
 
-        if (isJumpPressed && isGrounded) {
-          velocityY = jumpStrength;
-          isGrounded = false;
+        // Gestione Campo Visivo tramite l'analogico di destra (camAnalogX e camAnalogY)
+        if (Math.abs(camAnalogX) > 0.1) {
+          cameraYaw -= camAnalogX * 0.04;
+        }
+        if (Math.abs(camAnalogY) > 0.1) {
+          cameraPitch = Math.max(0.1, Math.min(1.2, cameraPitch + camAnalogY * 0.03));
         }
 
+        // Calcolo posizione e orientamento orbita telecamera intorno a Walle
+        const camDistanceLvl4 = 8.0;
+        const camX = player.position.x + camDistanceLvl4 * Math.sin(cameraYaw) * Math.cos(cameraPitch);
+        const camY = player.position.y + camDistanceLvl4 * Math.sin(cameraPitch) + 1.2;
+        const camZ = player.position.z + camDistanceLvl4 * Math.cos(cameraYaw) * Math.cos(cameraPitch);
+
+        camera.position.set(camX, camY, camZ);
+        camera.lookAt(player.position.x, player.position.y + 0.8, player.position.z);
+
+        // Controllo attivazione delle 3 sfere casuali
         hiddenLights.forEach(l => {
           if (!l.activated) {
             const dx = player.position.x - l.x;
-            const dz = player.position.z - foregroundZ;
-            if (Math.sqrt(dx * dx + dz * dz) < 1.0 && Math.abs(player.position.y - (groundY + playerHalfHeight)) < 1.0) {
+            const dz = player.position.z - l.z;
+            if (Math.sqrt(dx * dx + dz * dz) < 1.3) {
               l.activated = true;
               l.mesh.material.color.setHex(0x00ffff);
-              l.pointLight.intensity = 3.0;
+              l.pointLight.intensity = 4.0;
               lightsActivatedCount++;
 
               if (lightsActivatedCount >= 3) {
@@ -1185,27 +1301,18 @@
           }
         });
 
+        // Controlla se Walle tocca Evee per la vittoria finale
         if (lightsActivatedCount >= 3 && darkWorldEvee && darkWorldEvee.visible) {
           const dx = player.position.x - darkWorldEvee.position.x;
-          const dy = player.position.y - (groundY + playerHalfHeight);
           const dz = player.position.z - foregroundZ;
-          if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 1.3) {
+          if (Math.sqrt(dx * dx + dz * dz) < 1.5) {
             if (!level4Completed) {
               level4Completed = true;
               if (heartMesh) heartMesh.visible = true;
-              endGame(true, "VITTORIA FINALE! 🤖❤️✨\nWalle ha ritrovato Evee nel mondo aperto!");
+              endGame(true, "VITTORIA FINALE! 🤖❤️✨\nWalle ed Evee si sono ritrovati!");
             }
           }
         }
-
-        const targetCamX = player.position.x - 4.0;
-        const targetCamY = player.position.y + 2.2;
-        const targetCamZ = player.position.z + 5.0;
-
-        camera.position.x += (targetCamX - camera.position.x) * 0.1;
-        camera.position.y += (targetCamY - camera.position.y) * 0.1;
-        camera.position.z += (targetCamZ - camera.position.z) * 0.1;
-        camera.lookAt(player.position.x + 1.0, player.position.y, player.position.z);
       }
     }
 
