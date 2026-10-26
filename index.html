@@ -175,7 +175,7 @@
       pointer-events: none;
     }
 
-    /* PULSANTE SALTO (LIVELLI 1, 2, 4 se attivo) */
+    /* PULSANTE SALTO (LIVELLI 1, 2) */
     #btn-jump {
       position: absolute;
       bottom: 30px;
@@ -256,7 +256,6 @@
     let camAnalogY = 0;
     let isJumpPressed = false;
 
-    // Angoli rotazione telecamera per Livello 4
     let cameraYaw = 0;
     let cameraPitch = 0.3;
 
@@ -266,7 +265,6 @@
     const jumpStrength = 0.38;
     let isGrounded = true;
 
-    // Parametri Terreno
     const groundY = 0.0;
     const foregroundZ = 2.0;
 
@@ -281,10 +279,8 @@
       { start: 77, end: 110 }
     ];
 
-    // Piattaforma Unica senza crateri per Livello 4
     let level4PlatformMesh = null;
 
-    // Ostacoli fisici (Livelli 1 e 2)
     const obstacles = [
       { x: 5, width: 1.5, height: 1.5, meshes: [] },
       { x: 30, width: 1.5, height: 1.5, meshes: [] },
@@ -292,7 +288,6 @@
       { x: 88, width: 1.5, height: 1.5, meshes: [] }
     ];
 
-    // Nemici Livello 1: Zucche
     const pumpkins = [
       { minX: 8, maxX: 14, posY: 0.8, speed: 0.08, dir: 1, radius: 0.6, mesh: null },
       { minX: 22, maxX: 28, posY: 0.8, speed: 0.1, dir: 1, radius: 0.6, mesh: null },
@@ -302,7 +297,6 @@
       { minX: 80, maxX: 86, posY: 0.8, speed: 0.12, dir: 1, radius: 0.6, mesh: null }
     ];
 
-    // Nemici Livello 2: Pipistrelli volanti
     const bats = [
       { minX: 7, maxX: 14, baseY: 1.6, speed: 0.09, dir: 1, mesh: null, leftWing: null, rightWing: null, radius: 0.55 },
       { minX: 21, maxX: 29, baseY: 2.2, speed: 0.11, dir: -1, mesh: null, leftWing: null, rightWing: null, radius: 0.55 },
@@ -312,7 +306,6 @@
       { minX: 79, maxX: 87, baseY: 2.0, speed: 0.13, dir: -1, radius: 0.55 }
     ];
 
-    // Ostacoli Livello 3: Area Industriale
     const industrialObstacles = [
       { x: 15, y: 1.0, width: 1.2, height: 3.5, mesh: null },
       { x: 25, y: 4.5, width: 1.2, height: 3.5, mesh: null },
@@ -325,7 +318,6 @@
     ];
     let industrialPipesGroup = null;
 
-    // Elementi Livello 4 (Open World, 3 Luci Random, Evee Nascosta, Cuore)
     let darkWorldGroup = null;
     let hiddenLights = [];
     let lightsActivatedCount = 0;
@@ -333,7 +325,6 @@
     let heartMesh = null;
     let level4Completed = false;
 
-    // Elementi Intro Livello 1 (Muro e Evee a sinistra)
     let introGroup = null;
     let introWallX = -2.0;
 
@@ -479,7 +470,7 @@
           (err) => console.warn("Modello walle08.glb non trovato, uso il segnaposto.", err)
         );
 
-        // 3. PERSONAGGIO EVEE
+        // 3. PERSONAGGIO EVEE (Posizionato correttamente a sinistra del muro nel Livello 1)
         loader.load(
           './evee.glb',
           (gltf) => {
@@ -494,6 +485,7 @@
             const center = box.getCenter(new THREE.Vector3());
             loadedModel.position.sub(center);
 
+            // Evee per Livello 3
             playerEvee = new THREE.Group();
             playerEvee.add(loadedModel.clone());
             playerEvee.position.set(0, 2.5, foregroundZ);
@@ -501,6 +493,7 @@
             playerEvee.visible = false;
             scene.add(playerEvee);
 
+            // Evee per Livello 1: Posizionata a sinistra del muro divisorio e fissa
             if (introGroup) {
               const introEvee = loadedModel.clone();
               introEvee.scale.setScalar(scale);
@@ -509,6 +502,7 @@
               introGroup.add(introEvee);
             }
 
+            // Evee per Livello 4 (Open World)
             darkWorldEvee = new THREE.Group();
             darkWorldEvee.add(loadedModel.clone());
             darkWorldEvee.position.set(22, groundY, foregroundZ);
@@ -743,7 +737,6 @@
       darkWorldGroup = new THREE.Group();
       darkWorldGroup.visible = false;
 
-      // Terreno continuo UNICO senza crateri per Livello 4
       const level4GroundGeo = new THREE.BoxGeometry(60, 2, 30);
       const level4GroundMat = new THREE.MeshLambertMaterial({ color: 0x1a1a2e });
       level4PlatformMesh = new THREE.Mesh(level4GroundGeo, level4GroundMat);
@@ -751,7 +744,6 @@
       level4PlatformMesh.receiveShadow = true;
       darkWorldGroup.add(level4PlatformMesh);
 
-      // Le 3 luci nascoste vengono create e posizionate in maniera casuale
       hiddenLights = [0, 1, 2].map(() => {
         const lightGeo = new THREE.SphereGeometry(0.4, 16, 16);
         const lightMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
@@ -764,7 +756,6 @@
         return { mesh: mesh, pointLight: pLight, activated: false, x: 0, y: 0.2, z: 0 };
       });
 
-      // Cuore Finale
       const heartShape = new THREE.Shape();
       heartShape.fromPoints([
         new THREE.Vector2(0, 0.5),
@@ -789,10 +780,8 @@
       scene.add(darkWorldGroup);
     }
 
-    // Generatore Posizioni Casuali per le Sfere nel Livello 4
     function randomizeLevel4Lights() {
       hiddenLights.forEach((l) => {
-        // Genera posizioni casuali nell'area open world senza sovrapposizioni
         l.x = -8 + Math.random() * 32;
         l.z = -5 + Math.random() * 14;
         l.activated = false;
@@ -936,7 +925,6 @@
         }, 3000);
 
       } else if (level === 4) {
-        // SETUP LIVELLO 4 (Open World, Rimozione Pulsante Salto -> Joystick Campo Visivo)
         isLevel3Starting = false;
         scene.background = darkBgTexture;
         scene.fog = new THREE.FogExp2(0x0a0a1a, 0.02);
@@ -954,11 +942,9 @@
           velocityY = 0;
         }
 
-        // Rimuove il pulsante del salto e abilita l'analogico della telecamera in basso a destra
         jumpBtn.style.display = 'none';
         camJoystickContainer.style.display = 'flex';
 
-        // Genera posizioni casuali ad ogni caricamento del livello 4
         randomizeLevel4Lights();
 
         lightsActivatedCount = 0;
@@ -1075,7 +1061,6 @@
       btnJump.addEventListener('mouseup', jumpEnd);
     }
 
-    // Configurazione Joystick per il Campo Visivo in Basso a Destra (Livello 4)
     function setupCameraJoystickControls() {
       const container = document.getElementById('camera-joystick-container');
       const knob = document.getElementById('camera-joystick-knob');
@@ -1252,8 +1237,7 @@
         camera.lookAt(player.position.x + 2, 3.2, foregroundZ);
 
       } else if (currentLevel === 4) {
-        // LIVELLO 4: TERRENO CONTINUO SENZA CRATERI, ANALOGICO DESTRA PER IL CAMPO VISIVO
-        player.position.y = groundY + playerHalfHeight; // Terreno continuo senza cadute
+        player.position.y = groundY + playerHalfHeight;
 
         let moveX = 0;
         let moveZ = 0;
@@ -1266,7 +1250,6 @@
         player.position.x = Math.max(-15, Math.min(35, player.position.x + moveX));
         player.position.z = Math.max(-8, Math.min(12, player.position.z + moveZ));
 
-        // Gestione Campo Visivo tramite l'analogico di destra (camAnalogX e camAnalogY)
         if (Math.abs(camAnalogX) > 0.1) {
           cameraYaw -= camAnalogX * 0.04;
         }
@@ -1274,7 +1257,6 @@
           cameraPitch = Math.max(0.1, Math.min(1.2, cameraPitch + camAnalogY * 0.03));
         }
 
-        // Calcolo posizione e orientamento orbita telecamera intorno a Walle
         const camDistanceLvl4 = 8.0;
         const camX = player.position.x + camDistanceLvl4 * Math.sin(cameraYaw) * Math.cos(cameraPitch);
         const camY = player.position.y + camDistanceLvl4 * Math.sin(cameraPitch) + 1.2;
@@ -1283,7 +1265,6 @@
         camera.position.set(camX, camY, camZ);
         camera.lookAt(player.position.x, player.position.y + 0.8, player.position.z);
 
-        // Controllo attivazione delle 3 sfere casuali
         hiddenLights.forEach(l => {
           if (!l.activated) {
             const dx = player.position.x - l.x;
@@ -1301,7 +1282,6 @@
           }
         });
 
-        // Controlla se Walle tocca Evee per la vittoria finale
         if (lightsActivatedCount >= 3 && darkWorldEvee && darkWorldEvee.visible) {
           const dx = player.position.x - darkWorldEvee.position.x;
           const dz = player.position.z - foregroundZ;
