@@ -1237,65 +1237,301 @@
         camera.position.y = 3.2; camera.position.z = cameraDistance;
         camera.lookAt(player.position.x + 2, 3.2, foregroundZ);
 
-    // Funzione per il calcolo dell'altezza del terreno desertico a dislivelli
-function getDesertHeight(x, z) {
-  return Math.sin(x * 0.15) * Math.cos(z * 0.15) * 1.2 
-       + Math.sin(x * 0.05 + z * 0.08) * 1.8 
-       + Math.cos(x * 0.3) * 0.4;
-}
+   <!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Wall-E - Livello 4 Deserto</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      font-family: sans-serif;
+      touch-action: none;
+    }
 
-// Funzione per creare il terreno color sabbia con dislivelli (da chiamare nell'inizializzazione del Livello 4)
-function createDesertTerrain() {
-  const width = 60;
-  const depth = 40;
-  const segments = 60;
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+    }
 
-  const terrainGeo = new THREE.PlaneGeometry(width, depth, segments, segments);
-  terrainGeo.rotateX(-Math.PI / 2);
+    /* Overlay Game Over / Vittoria */
+    #game-over-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      z-index: 100;
+    }
 
-  const posAttr = terrainGeo.attributes.position;
-  for (let i = 0; i < posAttr.count; i++) {
-    const x = posAttr.getX(i);
-    const z = posAttr.getZ(i);
-    posAttr.setY(i, getDesertHeight(x, z));
-  }
+    .hidden {
+      display: none !important;
+    }
 
-  terrainGeo.computeVertexNormals();
+    #status-title {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
 
-  const terrainMat = new THREE.MeshStandardMaterial({
-    color: 0xddb475, // Sabbia del deserto
-    roughness: 0.85,
-    metalness: 0.1,
-    flatShading: true
-  });
+    #status-desc {
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+      text-align: center;
+      white-space: pre-line;
+    }
 
-  const desertMesh = new THREE.Mesh(terrainGeo, terrainMat);
-  desertMesh.receiveShadow = true;
-  return desertMesh;
-}
+    button {
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: bold;
+      background-color: #00e5ff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
 
-// --- GESTIONE LIVELLO 4 NEL LOOP DI AGGIORNAMENTO ---
-      } else if (currentLevel === 4) {
-        // Calcolo dell'altezza dinamica sotto i piedi di Wall-E
+    /* Joystick Touch a Schermo */
+    .joystick-zone {
+      position: absolute;
+      bottom: 30px;
+      width: 120px;
+      height: 120px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-radius: 50%;
+      touch-action: none;
+    }
+
+    #left-joystick-zone { left: 30px; }
+    #right-joystick-zone { right: 30px; }
+
+    .joystick-knob {
+      position: absolute;
+      top: 35px;
+      left: 35px;
+      width: 50px;
+      height: 50px;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+  </style>
+
+  <!-- Inclusion di Three.js da CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <!-- Controlli Joystick On-Screen -->
+  <div id="left-joystick-zone" class="joystick-zone">
+    <div id="left-knob" class="joystick-knob"></div>
+  </div>
+  <div id="right-joystick-zone" class="joystick-zone">
+    <div id="right-knob" class="joystick-knob"></div>
+  </div>
+
+  <!-- UI Overlay -->
+  <div id="game-over-overlay" class="hidden">
+    <h1 id="status-title">VITTORIA ASSOLUTA! 🏆</h1>
+    <p id="status-desc"></p>
+    <button id="restart-btn" onclick="resetGame()">Ricomincia</button>
+  </div>
+
+  <script>
+    // --- VARIABILI GLOBALI DI GIOCO ---
+    let scene, camera, renderer;
+    let player;
+    let currentLevel = 4;
+    let isGameOver = false;
+    let timerInterval = null;
+    let checkpointLevel = 4;
+    let level4Completed = false;
+
+    // Movimento e Telecamera
+    let moveSpeed = 0.15;
+    let playerHalfHeight = 0.5;
+    let cameraYaw = 0;
+    let cameraPitch = 0.4;
+
+    // Input Analogici (-1 a 1)
+    let analogX = 0, analogY = 0;
+    let camAnalogX = 0, camAnalogY = 0;
+
+    // Oggetti di Gioco del Livello 4
+    let hiddenLights = [];
+    let lightsActivatedCount = 0;
+    let darkWorldEvee = null;
+    let heartMesh = null;
+    let foregroundZ = 0;
+
+    // --- 1. GENERAZIONE TERRENO DESERTICO CON DISLIVELLI ---
+    function getDesertHeight(x, z) {
+      return Math.sin(x * 0.15) * Math.cos(z * 0.15) * 1.2 
+           + Math.sin(x * 0.05 + z * 0.08) * 1.8 
+           + Math.cos(x * 0.3) * 0.4;
+    }
+
+    function createDesertTerrain() {
+      const width = 80;
+      const depth = 60;
+      const segments = 80;
+
+      const terrainGeo = new THREE.PlaneGeometry(width, depth, segments, segments);
+      terrainGeo.rotateX(-Math.PI / 2);
+
+      const posAttr = terrainGeo.attributes.position;
+      for (let i = 0; i < posAttr.count; i++) {
+        const x = posAttr.getX(i);
+        const z = posAttr.getZ(i);
+        posAttr.setY(i, getDesertHeight(x, z));
+      }
+
+      terrainGeo.computeVertexNormals();
+
+      const terrainMat = new THREE.MeshStandardMaterial({
+        color: 0xddb475, // Sabbia deserto
+        roughness: 0.85,
+        metalness: 0.1,
+        flatShading: true
+      });
+
+      const desertMesh = new THREE.Mesh(terrainGeo, terrainMat);
+      desertMesh.receiveShadow = true;
+      return desertMesh;
+    }
+
+    // --- 2. INIZIALIZZAZIONE SCENA E LIVELLO 4 ---
+    function init() {
+      const container = document.getElementById('canvas-container');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xd4a373);
+      scene.fog = new THREE.FogExp2(0xd4a373, 0.025);
+
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
+
+      // Luci Ambiente e Solare
+      const ambientLight = new THREE.AmbientLight(0xffedd8, 0.7);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
+      dirLight.position.set(20, 40, 20);
+      scene.add(dirLight);
+
+      // Aggiungi Terreno Desertico
+      const terrain = createDesertTerrain();
+      scene.add(terrain);
+
+      // Placeholder per Wall-E (Mesh cubo o caricatore GLTF)
+      const playerGeo = new THREE.BoxGeometry(1, 1, 1);
+      const playerMat = new THREE.MeshStandardMaterial({ color: 0xffaa00 });
+      player = new THREE.Mesh(playerGeo, playerMat);
+      player.position.set(0, getDesertHeight(0, 0) + playerHalfHeight, 0);
+      scene.add(player);
+
+      // Placeholder per Evee (Obiettivo)
+      const eveeGeo = new THREE.SphereGeometry(0.6, 16, 16);
+      const eveeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x888888 });
+      darkWorldEvee = new THREE.Mesh(eveeGeo, eveeMat);
+      darkWorldEvee.position.set(10, getDesertHeight(10, foregroundZ) + 0.6, foregroundZ);
+      darkWorldEvee.visible = false;
+      scene.add(darkWorldEvee);
+
+      // Generazione 3 Luci Nascoste da Attivare
+      setupHiddenLights();
+
+      // Configurazione Input Touch / Tastiera
+      setupControls();
+
+      window.addEventListener('resize', onWindowResize, false);
+      
+      // Avvio Loop di Animazione
+      animate();
+    }
+
+    function setupHiddenLights() {
+      hiddenLights = [];
+      const lightPositions = [
+        { x: -5, z: 5 },
+        { x: 12, z: -4 },
+        { x: 5, z: 8 }
+      ];
+
+      lightPositions.forEach(pos => {
+        const y = getDesertHeight(pos.x, pos.z) + 0.5;
+        const meshGeo = new THREE.CylinderGeometry(0.2, 0.2, 1);
+        const meshMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+        const mesh = new THREE.Mesh(meshGeo, meshMat);
+        mesh.position.set(pos.x, y, pos.z);
+
+        const pointLight = new THREE.PointLight(0x00ffff, 0, 10);
+        pointLight.position.set(pos.x, y + 1, pos.z);
+
+        scene.add(mesh);
+        scene.add(pointLight);
+
+        hiddenLights.push({
+          x: pos.x,
+          z: pos.z,
+          mesh: mesh,
+          pointLight: pointLight,
+          activated: false
+        });
+      });
+    }
+
+    // --- 3. AGGIORNAMENTO MOVIMENTO LIVELLO 4 ---
+    function updatePlayerMovement() {
+      if (isGameOver) return;
+
+      if (currentLevel == 4) {
+        if (!player) return;
+
+        // Inizializzazione di sicurezza contro i valori NaN
+        if (isNaN(cameraYaw)) cameraYaw = 0;
+        const safeHalfHeight = (typeof playerHalfHeight !== 'undefined' && !isNaN(playerHalfHeight)) ? playerHalfHeight : 0.5;
+        const safeSpeed = (typeof moveSpeed !== 'undefined' && moveSpeed > 0) ? moveSpeed : 0.15;
+
+        // 1. Calcolo dinamico dell'altezza del terreno
         const currentGroundY = getDesertHeight(player.position.x, player.position.z);
-        player.position.y = currentGroundY + playerHalfHeight;
+        player.position.y = currentGroundY + safeHalfHeight;
 
         let moveX = 0;
         let moveZ = 0;
 
-        // Movimento relativo all'orientamento attuale della telecamera (cameraYaw)
-        if (Math.abs(analogX) > 0.15 || Math.abs(analogY) > 0.15) {
+        const inputX = analogX || 0;
+        const inputY = analogY || 0;
+
+        // 2. Movimento orientato alla telecamera (cameraYaw)
+        if (Math.abs(inputX) > 0.15 || Math.abs(inputY) > 0.15) {
           const camForwardX = -Math.sin(cameraYaw);
           const camForwardZ = -Math.cos(cameraYaw);
           const camRightX = Math.cos(cameraYaw);
           const camRightZ = -Math.sin(cameraYaw);
 
-          const inputForward = -analogY;
-          const inputRight = analogX;
+          const inputForward = -inputY; // Leva su = avanti
+          const inputRight = inputX;    // Leva destra = destra
 
-          moveX = (camRightX * inputRight + camForwardX * inputForward) * moveSpeed;
-          moveZ = (camRightZ * inputRight + camForwardZ * inputForward) * moveSpeed;
+          moveX = (camRightX * inputRight + camForwardX * inputForward) * safeSpeed;
+          moveZ = (camRightZ * inputRight + camForwardZ * inputForward) * safeSpeed;
 
+          // Orientamento visivo del personaggio
           player.rotation.y = Math.atan2(moveX, moveZ);
         }
 
@@ -1303,15 +1539,18 @@ function createDesertTerrain() {
         player.position.x = Math.max(-15, Math.min(35, player.position.x + moveX));
         player.position.z = Math.max(-8, Math.min(12, player.position.z + moveZ));
 
-        // Rotazione telecamera con analogico destro
-        if (Math.abs(camAnalogX) > 0.1) {
-          cameraYaw -= camAnalogX * 0.04;
+        // 3. Controllo vista telecamera con l'analogico destro
+        const camInX = camAnalogX || 0;
+        const camInY = camAnalogY || 0;
+
+        if (Math.abs(camInX) > 0.1) {
+          cameraYaw -= camInX * 0.04;
         }
-        if (Math.abs(camAnalogY) > 0.1) {
-          cameraPitch = Math.max(0.1, Math.min(1.2, cameraPitch + camAnalogY * 0.03));
+        if (Math.abs(camInY) > 0.1) {
+          cameraPitch = Math.max(0.1, Math.min(1.2, cameraPitch + camInY * 0.03));
         }
 
-        // Posizionamento telecamera orbita attorno al giocatore
+        // 4. Posizionamento della telecamera in orbita attorno al giocatore
         const camDistanceLvl4 = 8.0;
         const camX = player.position.x + camDistanceLvl4 * Math.sin(cameraYaw) * Math.cos(cameraPitch);
         const camY = player.position.y + camDistanceLvl4 * Math.sin(cameraPitch) + 1.2;
@@ -1320,7 +1559,7 @@ function createDesertTerrain() {
         camera.position.set(camX, camY, camZ);
         camera.lookAt(player.position.x, player.position.y + 0.8, player.position.z);
 
-        // Attivazione luci nascoste
+        // 5. Attivazione delle 3 luci nascoste nel livello
         hiddenLights.forEach(l => {
           if (!l.activated) {
             const dx = player.position.x - l.x;
@@ -1338,7 +1577,7 @@ function createDesertTerrain() {
           }
         });
 
-        // Controllo vittoria
+        // 6. Condizione di vittoria finale
         if (lightsActivatedCount >= 3 && darkWorldEvee && darkWorldEvee.visible) {
           const dx = player.position.x - darkWorldEvee.position.x;
           const dz = player.position.z - foregroundZ;
@@ -1353,9 +1592,13 @@ function createDesertTerrain() {
       }
     }
 
+    function updateEnemies() {
+      // Spazio riservato alla logica dei nemici
+    }
+
     function endGame(victory, message) {
       isGameOver = true;
-      clearInterval(timerInterval);
+      if (timerInterval) clearInterval(timerInterval);
 
       const overlay = document.getElementById('game-over-overlay');
       const title = document.getElementById('status-title');
@@ -1373,13 +1616,21 @@ function createDesertTerrain() {
 
     function resetGame() {
       isGameOver = false;
+      lightsActivatedCount = 0;
+      level4Completed = false;
       document.getElementById('game-over-overlay').classList.add('hidden');
-      switchLevel(checkpointLevel);
-    }
+      
+      // Reset posizione Wall-E
+      if (player) {
+        player.position.set(0, getDesertHeight(0, 0) + playerHalfHeight, 0);
+      }
+      if (darkWorldEvee) darkWorldEvee.visible = false;
 
-    function restartFromLvl1() {
-      checkpointLevel = 1;
-      resetGame();
+      hiddenLights.forEach(l => {
+        l.activated = false;
+        l.mesh.material.color.setHex(0x555555);
+        l.pointLight.intensity = 0;
+      });
     }
 
     function animate() {
@@ -1396,6 +1647,87 @@ function createDesertTerrain() {
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
+
+    // --- 4. GESTIONE CONTROLLI TOUCH & TASTIERA (Per test da PC) ---
+    function setupControls() {
+      setupVirtualJoystick('left-joystick-zone', 'left-knob', (x, y) => {
+        analogX = x;
+        analogY = y;
+      });
+
+      setupVirtualJoystick('right-joystick-zone', 'right-knob', (x, y) => {
+        camAnalogX = x;
+        camAnalogY = y;
+      });
+
+      // Controlli Tastiera Fallback (WASD / Frecce per PC)
+      const keys = {};
+      window.addEventListener('keydown', e => { keys[e.key] = true; updateKeyboardAnalog(); });
+      window.addEventListener('keyup', e => { keys[e.key] = false; updateKeyboardAnalog(); });
+
+      function updateKeyboardAnalog() {
+        analogX = (keys['d'] || keys['ArrowRight'] ? 1 : 0) - (keys['a'] || keys['ArrowLeft'] ? 1 : 0);
+        analogY = (keys['s'] || keys['ArrowDown'] ? 1 : 0) - (keys['w'] || keys['ArrowUp'] ? 1 : 0);
+      }
+    }
+
+    function setupVirtualJoystick(zoneId, knobId, onChange) {
+      const zone = document.getElementById(zoneId);
+      const knob = document.getElementById(knobId);
+      let touchId = null;
+      let startX = 0, startY = 0;
+      const maxRadius = 40;
+
+      function handleStart(e) {
+        const touch = e.changedTouches ? e.changedTouches[0] : e;
+        touchId = touch.identifier !== undefined ? touch.identifier : 'mouse';
+        startX = touch.clientX;
+        startY = touch.clientY;
+      }
+
+      function handleMove(e) {
+        if (touchId === null) return;
+        let touch = null;
+        if (e.changedTouches) {
+          for (let t of e.changedTouches) {
+            if (t.identifier === touchId) { touch = t; break; }
+          }
+        } else {
+          touch = e;
+        }
+
+        if (!touch) return;
+
+        let dx = touch.clientX - startX;
+        let dy = touch.clientY - startY;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > maxRadius) {
+          dx = (dx / dist) * maxRadius;
+          dy = (dy / dist) * maxRadius;
+        }
+
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+        onChange(dx / maxRadius, dy / maxRadius);
+      }
+
+      function handleEnd(e) {
+        knob.style.transform = `translate(0px, 0px)`;
+        touchId = null;
+        onChange(0, 0);
+      }
+
+      zone.addEventListener('touchstart', handleStart, false);
+      window.addEventListener('touchmove', handleMove, false);
+      window.addEventListener('touchend', handleEnd, false);
+
+      zone.addEventListener('mousedown', handleStart, false);
+      window.addEventListener('mousemove', handleMove, false);
+      window.addEventListener('mouseup', handleEnd, false);
+    }
+
+    // Avvio del gioco al caricamento della pagina
+    window.onload = init;
   </script>
 </body>
 </html>
