@@ -1237,20 +1237,73 @@
         camera.position.y = 3.2; camera.position.z = cameraDistance;
         camera.lookAt(player.position.x + 2, 3.2, foregroundZ);
 
+    // Funzione per il calcolo dell'altezza del terreno desertico a dislivelli
+function getDesertHeight(x, z) {
+  return Math.sin(x * 0.15) * Math.cos(z * 0.15) * 1.2 
+       + Math.sin(x * 0.05 + z * 0.08) * 1.8 
+       + Math.cos(x * 0.3) * 0.4;
+}
+
+// Funzione per creare il terreno color sabbia con dislivelli (da chiamare nell'inizializzazione del Livello 4)
+function createDesertTerrain() {
+  const width = 60;
+  const depth = 40;
+  const segments = 60;
+
+  const terrainGeo = new THREE.PlaneGeometry(width, depth, segments, segments);
+  terrainGeo.rotateX(-Math.PI / 2);
+
+  const posAttr = terrainGeo.attributes.position;
+  for (let i = 0; i < posAttr.count; i++) {
+    const x = posAttr.getX(i);
+    const z = posAttr.getZ(i);
+    posAttr.setY(i, getDesertHeight(x, z));
+  }
+
+  terrainGeo.computeVertexNormals();
+
+  const terrainMat = new THREE.MeshStandardMaterial({
+    color: 0xddb475, // Sabbia del deserto
+    roughness: 0.85,
+    metalness: 0.1,
+    flatShading: true
+  });
+
+  const desertMesh = new THREE.Mesh(terrainGeo, terrainMat);
+  desertMesh.receiveShadow = true;
+  return desertMesh;
+}
+
+// --- GESTIONE LIVELLO 4 NEL LOOP DI AGGIORNAMENTO ---
       } else if (currentLevel === 4) {
-        player.position.y = groundY + playerHalfHeight;
+        // Calcolo dell'altezza dinamica sotto i piedi di Wall-E
+        const currentGroundY = getDesertHeight(player.position.x, player.position.z);
+        player.position.y = currentGroundY + playerHalfHeight;
 
         let moveX = 0;
         let moveZ = 0;
+
+        // Movimento relativo all'orientamento attuale della telecamera (cameraYaw)
         if (Math.abs(analogX) > 0.15 || Math.abs(analogY) > 0.15) {
-          moveX = analogX * moveSpeed;
-          moveZ = analogY * moveSpeed;
-          player.rotation.y = Math.atan2(moveX, moveZ) + Math.PI / 2;
+          const camForwardX = -Math.sin(cameraYaw);
+          const camForwardZ = -Math.cos(cameraYaw);
+          const camRightX = Math.cos(cameraYaw);
+          const camRightZ = -Math.sin(cameraYaw);
+
+          const inputForward = -analogY;
+          const inputRight = analogX;
+
+          moveX = (camRightX * inputRight + camForwardX * inputForward) * moveSpeed;
+          moveZ = (camRightZ * inputRight + camForwardZ * inputForward) * moveSpeed;
+
+          player.rotation.y = Math.atan2(moveX, moveZ);
         }
 
+        // Limiti della mappa
         player.position.x = Math.max(-15, Math.min(35, player.position.x + moveX));
         player.position.z = Math.max(-8, Math.min(12, player.position.z + moveZ));
 
+        // Rotazione telecamera con analogico destro
         if (Math.abs(camAnalogX) > 0.1) {
           cameraYaw -= camAnalogX * 0.04;
         }
@@ -1258,6 +1311,7 @@
           cameraPitch = Math.max(0.1, Math.min(1.2, cameraPitch + camAnalogY * 0.03));
         }
 
+        // Posizionamento telecamera orbita attorno al giocatore
         const camDistanceLvl4 = 8.0;
         const camX = player.position.x + camDistanceLvl4 * Math.sin(cameraYaw) * Math.cos(cameraPitch);
         const camY = player.position.y + camDistanceLvl4 * Math.sin(cameraPitch) + 1.2;
@@ -1266,6 +1320,7 @@
         camera.position.set(camX, camY, camZ);
         camera.lookAt(player.position.x, player.position.y + 0.8, player.position.z);
 
+        // Attivazione luci nascoste
         hiddenLights.forEach(l => {
           if (!l.activated) {
             const dx = player.position.x - l.x;
@@ -1283,6 +1338,7 @@
           }
         });
 
+        // Controllo vittoria
         if (lightsActivatedCount >= 3 && darkWorldEvee && darkWorldEvee.visible) {
           const dx = player.position.x - darkWorldEvee.position.x;
           const dz = player.position.z - foregroundZ;
